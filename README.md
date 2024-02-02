@@ -1,1 +1,3 @@
 # scripties
+
+Everyday utility functions. 
