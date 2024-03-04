@@ -1,9 +1,9 @@
 import numpy as np
 
 minkowski_rotation = np.array(
-    [[-1  1  0]
-     [ 0  0  1]
-     [ 1  0  0]])
+    [[-1,  1,  0],
+     [ 0,  0,  1],
+     [ 1,  0,  0]])
 
 cut_rotation =  np.array(
     [[ 0.5, -0.5,  0. ],
