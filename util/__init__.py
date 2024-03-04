@@ -1,4 +1,4 @@
-
+from scipy.constants import speed_of_light
 
 def by_label(ats, info_label):
     if info_label == None:
@@ -15,4 +15,7 @@ def by_label(ats, info_label):
         data[label].append(at)
 
     return data
+
+
+THz_to_inv_cm = 10 ** 12 / speed_of_light / 100 # Thz -> s-1, c, m -> cm
 
