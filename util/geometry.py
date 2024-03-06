@@ -14,9 +14,13 @@ cut_rotation =  np.array(
      [ 0.5,  0.5,  0. ],
      [ 0. ,  0. ,  1. ]])
 
-ff = Path(util.__file__).parent / "data/prim_to_conventional_permutation_mx.npy" 
+base = Path(util.__file__).parent
 
-permutation_mx = np.load(ff)
+permutation_mx = np.load(base / "data/prim_to_conventional_permutation_mx.npy" )
+
+def array_perm_duplicate_mx():
+    ff = base / "data/prim_array_to_conventional_array_permutation.npy"
+    return np.load(ff)
 
 
 def primitive_to_conventional_cell_op(at_prim_mink_red):
@@ -31,7 +35,7 @@ def primitive_to_conventional_cell_op(at_prim_mink_red):
 
     # double the unit cell
     undo_cut_cell = np.linalg.inv(cut_rotation)
-    back_to_normal_at = cut(at_prim, a=undo_cut[0], b=undo_cut[1], c=undo_cut[2])
+    back_to_normal_at = cut(at_prim, a=undo_cut_cell[0], b=undo_cut_cell[1], c=undo_cut_cell[2])
 
     # swap atoms back
     ## remove all entries but necessary
@@ -40,9 +44,9 @@ def primitive_to_conventional_cell_op(at_prim_mink_red):
     print(f"removing info entries: {info_to_remove}")
     print(f"removing arrays entries: {arrays_to_remove}")
     for key in info_to_remove:
-        del at.info[key]
+        del back_to_normal_at.info[key]
     for key in arrays_to_remove:
-        del at.arrays[key]
+        del back_to_normal_at.arrays[key]
 
     final_at = back_to_normal_at.copy()
     final_at.positions = permutation_mx @ final_at.positions
