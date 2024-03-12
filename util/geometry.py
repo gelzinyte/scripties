@@ -23,7 +23,7 @@ def array_perm_duplicate_mx():
     return np.load(ff)
 
 
-def primitive_to_conventional_cell_op(at_prim_mink_red):
+def primitive_to_conventional_at(at_prim_mink_red):
 
     at_prim = at_prim_mink_red.copy()
 
