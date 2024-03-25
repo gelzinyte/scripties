@@ -86,7 +86,7 @@ def plot_total_dos(
 
 
 
-def phonon_and_labels(trajectory, born_file=None, eps=0.001, q_mesh=None):
+def phonon_and_labels(trajectory, born_file=None, eps=0.001, q_mesh=None, paths=None):
 
     if born_file is not None:
         phonon = postprocess(
@@ -100,7 +100,9 @@ def phonon_and_labels(trajectory, born_file=None, eps=0.001, q_mesh=None):
 
     at = to_Atoms(phonon.primitive)
     lat = at.cell.get_bravais_lattice(eps=eps)
-    paths = lat.special_path.split(",")
+
+    if paths is None:
+        paths = lat.special_path.split(",")
 
     print(trajectory, ":")
     print(lat)

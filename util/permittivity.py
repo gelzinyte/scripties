@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 import util
 
-base = Path(util.__file__).parent
+base = Path(util.__file__).parent / "data"
 
 # data
 mode_data = pd.read_csv(base / "schubert_paper.table_II.csv")
@@ -18,7 +18,7 @@ def get_rho(omega, A, f_TO, broadening):
     return A / (f_TO**2 - omega**2 - omega * broadening * 1j)
 
 
-def get_schubert_permittivity(omega_range):
+def get_schubert(omega_range):
 
     warnings.warn("No FCC contribution to schubert permittivity")
 
@@ -38,6 +38,17 @@ def get_schubert_permittivity(omega_range):
     eps_zz = xyz_data["high_freq"]["zz"] \
         + np.array([np.sum(get_rho(omega, Au["A"], Au["freq"], Au["scatter"])) for omega in omega_range])
 
+
+#     eps_xx = np.array([np.sum(get_rho(omega, Bu["A"], Bu["freq"], Bu["scatter"]) * np.cos(Bu["angle"])**2) for omega in omega_range])
+# 
+#     eps_yy = np.array([np.sum(get_rho(omega, Bu["A"], Bu["freq"], Bu["scatter"]) * np.sin(Bu["angle"])**2) for omega in omega_range])
+# 
+#     eps_xy = np.array([np.sum(get_rho(omega, Bu["A"], Bu["freq"], Bu["scatter"]) * np.cos(Bu["angle"]) * np.sin(Bu["angle"])) for omega in omega_range])
+# 
+#     eps_zz = np.array([np.sum(get_rho(omega, Au["A"], Au["freq"], Au["scatter"])) for omega in omega_range])
+# 
+
+
     data = {
         "xx": eps_xx,
         "yy": eps_yy,
@@ -45,5 +56,4 @@ def get_schubert_permittivity(omega_range):
         "zz": eps_zz}
 
     return data
-    
 
