@@ -1,4 +1,5 @@
 from scipy.constants import speed_of_light
+from scipy.constants import physical_constants
 
 def by_label(ats, info_label):
     if info_label == None:
@@ -18,4 +19,13 @@ def by_label(ats, info_label):
 
 
 THz_to_inv_cm = 10 ** 12 / speed_of_light / 100 # Thz -> s-1, c, m -> cm
+
+
+Planck_in_eVHz = physical_constants["Planck constant in eV/Hz"][0]
+
+#               cm*m-1  m*s-1           eV * s           eV->meV
+inv_cm_to_meV = 100 * speed_of_light * Planck_in_eVHz * 1e3
+
+#            THz-> Hz   eV Hz-1          eV->meV
+THz_to_meV = 1e12    * Planck_in_eVHz * 1e3
 
