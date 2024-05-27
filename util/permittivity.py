@@ -41,6 +41,8 @@ def get_schubert(omega_range, epsilon_inf=True):
         eps_xy += xyz_data["high_freq"]["xy"]
 
 
+    for idx, (A, freq, angle) in enumerate(zip(Bu["A"], Bu["freq"], Bu["angle"])):
+        print(f"{idx}. A {freq:0f} cm-1 alpha {np.rad2deg(angle):.0f} deg freq {freq:.0f} cm^-1")
 
 
     data = {
