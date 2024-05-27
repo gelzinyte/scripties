@@ -40,7 +40,7 @@ def primitive_to_conventional_at(at_prim_mink_red):
     # swap atoms back
     ## remove all entries but necessary
     info_to_remove = [key for key in back_to_normal_at.info.keys()]
-    arrays_to_remove = [key for key in back_to_normal_at.arrays.keys() if key not in ["numbers", "positions"]]
+    arrays_to_remove = [key for key in back_to_normal_at.arrays.keys() if key not in ["numbers", "positions", "masses"]]
     print(f"removing info entries: {info_to_remove}")
     print(f"removing arrays entries: {arrays_to_remove}")
     for key in info_to_remove:
@@ -51,6 +51,8 @@ def primitive_to_conventional_at(at_prim_mink_red):
     final_at = back_to_normal_at.copy()
     final_at.positions = permutation_mx @ final_at.positions
     final_at.numbers = permutation_mx @ final_at.numbers
+    if "masses" in final_at.arrays:
+        final_at.arrays["masses"] = permutation_mx @ final_at.arrays["masses"]
 
-    return final_at 
+    return final_at
 
