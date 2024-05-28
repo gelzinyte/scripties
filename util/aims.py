@@ -16,8 +16,6 @@ def read_dielectric(aims_out):
     return np.array([float(mm) for mm in match.groups()]).reshape((3,3))
 
 
-
-
 def get_polarization(aims_output_file):
 
     regex_patt = re.compile("(?:Cartesian Polarization)\s+(-?[\d.E-]+)\s+(-?[\d.E-]+)\s+(-?[\d.E-]+)")

@@ -1,4 +1,7 @@
 import numpy as np
+import warnings
+
+import util.geometry
 
 
 # rotate the axes so they match the paper                               
@@ -28,5 +31,31 @@ def get_ga2o3_irreps_and_relevant_modes(phonon):
     relevant_mode_idcs = relevant_mode_idcs[3:]
 
     return irrep_labels, relevant_mode_idcs
+
+
+def get_conventional_ga2o3_gamma_eigenvectors(qpoint_dict):
+    # eigenvectors of dyn matrix
+    # different eigenvectors as columns, so
+    # shape - [n_at x 3] x n_eigenvectors,
+    # 30 x 30, eigenvectors as columns
+    # dot products are np.eye
+    gamma_evecs = qpoint_dict["eigenvectors"][0]
+
+    # transpose so different eigenvectors are enumerated by the first axis (rows)
+    gamma_evecs = gamma_evecs.transpose()
+    # reshape so each eigenvector has the shape of n_at x 3D
+    gamma_evecs = gamma_evecs.reshape((30, 10, 3))   # [30,10,3]
+
+    # For each eigenvector, convert from primitive to conventional
+    prim_to_conv_perm_mx = util.geometry.array_perm_duplicate_mx()  # [20,10]
+    # for each eigenvector the transformation is
+    # prim_to_conv_perm_mx @ eigenvector
+    # So to rewrite for everyone
+    conv_evecs = np.einsum("ij,hjk->hik", prim_to_conv_perm_mx, gamma_evecs)
+    return conv_evecs
+
+
+
+
 
 

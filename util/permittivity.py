@@ -5,6 +5,10 @@ import pandas as pd
 from pathlib import Path
 import util
 
+from scipy.constants import epsilon_0
+
+
+
 base = Path(util.__file__).parent / "data"
 
 # data
@@ -53,4 +57,48 @@ def get_schubert(omega_range, epsilon_inf=True):
 
 
     return data
+
+
+def get_born_along_displacements(gamma_evecs, masses, born_charges):
+
+    evec_shape = gamma_evecs.shape
+    n_evecs = evec_shape[0]
+    n_atoms = evec_shape[1]
+    assert evec_shape[2] == 3
+
+    masses = np.tile(masses.reshape(1, n_atoms, 1), (n_evecs, 1, 3))
+
+    # shape n_evecs x n_atoms x 3                                                                           
+    eigen_displacements = gamma_evecs / np.sqrt(masses) # 1/sqrt(kg)                                         
+    assert eigen_displacements.shape == (n_evecs, n_atoms, 3)
+
+    # i - number of atoms                                                                                   
+    # "jk,k" is the matrix vector multiplication                      
+    S = np.einsum('ijk,lik->lj', born_charges, eigen_displacements) # C/sqrt(kg)
+    assert S.shape == (30, 3)
+
+    return S
+
+
+def epsilon_for_omega(omega, gamma_frequencies, numerator, volume, gamma):
+
+    # broadening prop to frequency
+    denominator = gamma_frequencies ** 2 - omega ** 2 - gamma_frequencies**2 * omega * gamma * 1j    # THz^2
+    denominator *= (2 * np.pi) ** 2
+
+    # cast into correct shape to later go with numerator
+    denominator = np.tile(denominator.reshape(12, 1, 1), (1, 3, 3)) # THz^2
+
+    # axis=0 to sum over the [12] modes
+    #                                       C^2/kg     THz^2                   m^3      THz^2 -> Hz^2
+    epsilon_contribution = np.sum(np.divide(numerator, denominator), axis=0) / volume * 1e-24
+    epsilon_contribution = epsilon_contribution / epsilon_0 # relative epsilon
+    return epsilon_contribution
+
+
+def get_numerator(S):
+    # outer products of S for each mode
+    numerator = np.einsum("ai,aj->aij", S, np.conjugate(S)) # C^2/kg
+    return numerator
+
 
