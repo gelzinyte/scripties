@@ -75,28 +75,30 @@ def get_born_along_displacements(gamma_evecs, masses, born_charges):
     # i - number of atoms                                                                                   
     # "jk,k" is the matrix vector multiplication                      
     S = np.einsum('ijk,lik->lj', born_charges, eigen_displacements) # C/sqrt(kg)
-    assert S.shape == (30, 3)
+    assert S.shape == (n_atoms * 3, 3)
 
     return S
 
 
-def epsilon_for_omega(omega, gamma_frequencies, numerator, volume, gamma):
+def epsilon_for_omega(omega, gamma_frequencies, numerator, volume, gamma, broadening_type):
 
     # broadening prop to frequency
-    if isinstance(gamma, float):
+    if broadening_type == "proportional":
         denominator = gamma_frequencies ** 2 - omega ** 2 - gamma_frequencies**2 * omega * gamma * 1j    # THz^2
-    elif isinstance(gamma, np.ndarray):
+    elif broadening == "individual":
         assert gamma.shape == gamma_frequencies.shape
         real_part = gamma_frequencies ** 2 - omega ** 2
         imag_part = 1j * omega * gamma
         denominator = real_part - imag_part
+    elif broadening == "constant":
+        denominator = gamma_frequencies ** 2 - omega ** 2 - omega * gamma * 1j    # THz^2
     else:
         raise RuntimeError(f"gamma is of type {type(gamma)} neither float nor numpy array.")
 
     denominator *= (2 * np.pi) ** 2
 
     # cast into correct shape to later go with numerator
-    denominator = np.tile(denominator.reshape(12, 1, 1), (1, 3, 3)) # THz^2
+    denominator = np.tile(denominator.reshape(len(gamma_frequencies), 1, 1), (1, 3, 3)) # THz^2
 
     # axis=0 to sum over the [12] modes
     #                                       C^2/kg     THz^2                   m^3      THz^2 -> Hz^2
