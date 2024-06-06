@@ -83,7 +83,16 @@ def get_born_along_displacements(gamma_evecs, masses, born_charges):
 def epsilon_for_omega(omega, gamma_frequencies, numerator, volume, gamma):
 
     # broadening prop to frequency
-    denominator = gamma_frequencies ** 2 - omega ** 2 - gamma_frequencies**2 * omega * gamma * 1j    # THz^2
+    if isinstance(gamma, float):
+        denominator = gamma_frequencies ** 2 - omega ** 2 - gamma_frequencies**2 * omega * gamma * 1j    # THz^2
+    elif isinstance(gamma, np.ndarray):
+        assert gamma.shape == gamma_frequencies.shape
+        real_part = gamma_frequencies ** 2 - omega ** 2
+        imag_part = 1j * omega * gamma
+        denominator = real_part - imag_part
+    else:
+        raise RuntimeError(f"gamma is of type {type(gamma)} neither float nor numpy array.")
+
     denominator *= (2 * np.pi) ** 2
 
     # cast into correct shape to later go with numerator

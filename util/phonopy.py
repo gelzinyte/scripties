@@ -108,7 +108,7 @@ def phonon_and_labels(trajectory, born_file=None, eps=0.001, q_mesh=None, paths=
     return get_labels(phonon=phonon, eps=eps, q_mesh=q_mesh, paths=paths)
 
 
-def get_labels(phonon, eps, q_mesh, paths):
+def get_labels(phonon, eps=0.001, q_mesh=None, paths=None):
 
     at = to_Atoms(phonon.primitive)
     lat = at.cell.get_bravais_lattice(eps=eps)
