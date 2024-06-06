@@ -18,6 +18,11 @@ ga2o3_R = np.array([
 # rank 2: s'_ij =  R_ij a_kl s_kl                                       
 #         
 
+moo3_R = np.array([
+    [0, 0, 1],
+    [0, 1, 0],
+    [1, 0, 0]]
+
 
 def get_ga2o3_irreps_and_relevant_modes(phonon):
     phonon.set_irreps(q=[0,0,0])
@@ -32,6 +37,16 @@ def get_ga2o3_irreps_and_relevant_modes(phonon):
 
     return irrep_labels, relevant_mode_idcs
 
+def get_moo3_irreps_and_relevant_modes(phonon):
+
+    phonon.set_irreps(q=[0,0,0])
+    irrep_labels = phonon.irreps._get_ir_labels()
+    if len(irrep_labels)!=48:
+        warnings.warn(f"Got {len(irrep_labels)} labels, not 24 as expected. Overwriting manually.")
+    else:
+        irrep_labels = np.array(irrep_labels)
+
+    return irrep_labels
 
 def get_conventional_ga2o3_gamma_eigenvectors(qpoint_dict):
     # eigenvectors of dyn matrix
