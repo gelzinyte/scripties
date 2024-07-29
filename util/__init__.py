@@ -29,3 +29,17 @@ inv_cm_to_meV = 100 * speed_of_light * Planck_in_eVHz * 1e3
 #            THz-> Hz   eV Hz-1          eV->meV
 THz_to_meV = 1e12    * Planck_in_eVHz * 1e3
 
+
+def print_cross_mx(evecs):
+
+    np.set_printoptions(precision=2, suppress=True)
+
+    num = evecs.shape[0]
+    mm = np.full((num,num), np.nan)
+    for idx1 in range(num):
+        for idx2 in range(num):
+            mm[idx1][idx2] = np.dot(evecs[idx1].flatten(), evecs[idx2].flatten())
+
+    print(mm)
+
+
