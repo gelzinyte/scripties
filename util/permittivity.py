@@ -60,11 +60,27 @@ def get_schubert(omega_range, epsilon_inf=True):
 
 
 def get_born_along_displacements(gamma_evecs, masses, born_charges):
+    """
+    arguments: 
+
+    - gamma_evecs: 
+        shape: len_masses*3 x len_masses x 3
+        units: n/a
+    - masses:
+        shape: n/a
+        units: kg
+    - born_charges: 
+        shape: len_masses x 3 x 3
+        units: Coulomb
+
+    """
 
     evec_shape = gamma_evecs.shape
     n_evecs = evec_shape[0]
     n_atoms = evec_shape[1]
     assert evec_shape[2] == 3
+    assert n_atoms == len(masses)
+    assert n_evecs == n_atoms * 3
 
     masses = np.tile(masses.reshape(1, n_atoms, 1), (n_evecs, 1, 3))
 
@@ -75,7 +91,7 @@ def get_born_along_displacements(gamma_evecs, masses, born_charges):
     # i - number of atoms                                                                                   
     # "jk,k" is the matrix vector multiplication                      
     S = np.einsum('ijk,lik->lj', born_charges, eigen_displacements) # C/sqrt(kg)
-    assert S.shape == (n_atoms * 3, 3)
+    assert S.shape == (evec_shape[0], 3)
 
     return S
 
@@ -85,12 +101,12 @@ def epsilon_for_omega(omega, gamma_frequencies, numerator, volume, gamma, broade
     # broadening prop to frequency
     if broadening_type == "proportional":
         denominator = gamma_frequencies ** 2 - omega ** 2 - gamma_frequencies**2 * omega * gamma * 1j    # THz^2
-    elif broadening == "individual":
+    elif broadening_type == "individual":
         assert gamma.shape == gamma_frequencies.shape
         real_part = gamma_frequencies ** 2 - omega ** 2
         imag_part = 1j * omega * gamma
         denominator = real_part - imag_part
-    elif broadening == "constant":
+    elif broadening_type == "constant":
         denominator = gamma_frequencies ** 2 - omega ** 2 - omega * gamma * 1j    # THz^2
     else:
         raise RuntimeError(f"gamma is of type {type(gamma)} neither float nor numpy array.")
