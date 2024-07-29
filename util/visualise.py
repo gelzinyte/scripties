@@ -3,7 +3,7 @@ import numpy as np
 from ase.io import write
 
 
-def evecs(ref_at, evecs, fname, irrep_labels=None):
+def evecs(ref_at, evecs, fname, irrep_labels=None, frequencies=None):
 
     ats_out = []
     for mode_idx, nmode in enumerate(evecs):
@@ -11,6 +11,8 @@ def evecs(ref_at, evecs, fname, irrep_labels=None):
         at.info[f"mode"] = mode_idx
         if irrep_labels is not None:
             at.info[f"symmetry"] = irrep_labels[mode_idx]
+        if frequencies is not None:
+            at.info["frequency"] = frequencies[mode_idx]
         at.arrays["Displacement"] = np.real(nmode)
         ats_out.append(at)
 
