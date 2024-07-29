@@ -10,6 +10,8 @@ from vibes.helpers import brillouinzone as bz
 
 from util import phonopy as u_phonopy
 
+import phonopy
+from phonopy.file_IO import get_born_parameters
 import phono3py
 from phonopy.file_IO import parse_BORN
 
@@ -88,6 +90,26 @@ def plot_total_dos(
         ax.set_ylabel(ylabel)
 
     ax.grid(draw_grid)
+
+
+def postprocess_wfl(evaled_ats_fn, phonopy_yaml_fn, born_charges_file=None, prop_prefix="aims_"):
+
+    phonon = phonopy.load(phonopy_yaml_fn, produce_fc=False)
+    evaled_ats = read(evaled_ats_fn, ":")
+    supercells = phonon.get_supercells_with_displacements()
+    assert len(supercells) == len(evaled_ats)
+
+    force_sets = [at.arrays[f"{prop_prefix}forces"] for at in evaled_ats]
+    phonon.produce_force_constants(force_sets, calculate_full_force_constants=False)
+
+    # set nac parameters
+    prim = phonon.get_primitive()
+    psym = phonon.get_primitive_symmetry()
+    if born_charges_file is not None:
+        nac_params = get_born_parameters(open(born_charges_file), prim, psym)
+        phonon.set_nac_params(nac_params)
+
+    return phonon
 
 
 
@@ -205,7 +227,7 @@ def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_
 
     #ph3.save("ph33py.disp.fc2fc3.yaml")
 
-    ph3.mesh_numbers = mesh_numbers 
+    ph3.mesh_numbers = mesh_numbers
     ph3.init_phph_interaction(nac_q_direction=nac_q_direction)
 
     imag_self_energy = ph3.run_imag_self_energy(
