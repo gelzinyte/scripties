@@ -1,8 +1,13 @@
 import numpy as np
 from copy import deepcopy
+from random import randint
 
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+import matplotlib.patches as mpatches
+
+from ase.visualize.plot import plot_atoms  as ase_plot_atoms
+from ase.data.colors import jmol_colors
 
 import util
 
@@ -59,6 +64,32 @@ def prepare_axes_with_atoms(omega_range, figsize=(12,12), units="cm$^{-1}$"):
     ax_atoms = [fig.add_subplot(outer_grid[2,idx]) for idx in range(3)]
 
     return axes_dd, ax_atoms
+
+
+
+def plot_atoms(at, ax_atoms):
+
+    for idx in range(3):
+        rr = np.array([randint(0, 90) for _ in range(3)])
+        ase_plot_atoms(at, ax_atoms[idx], radii=0.3, rotation=(f'{rr[0]}x,{rr[1]}y,0{rr[2]}z'))
+
+
+    # follow PlottingVariables from ase
+    symbols = at.get_chemical_symbols()
+    numbers = at.get_atomic_numbers()
+    ncolors = len(jmol_colors)
+    colors = jmol_colors[numbers.clip(max=ncolors-1)]
+
+    done_symbols = []
+    handles = []
+    for idx, number in enumerate(numbers):
+        symbol = symbols[idx]
+        if symbol not in done_symbols:
+            patch = mpatches.Patch(color=colors[idx], label=symbol)
+            handles.append(patch)
+            done_symbols.append(symbol)
+
+    ax_atoms[0].legend(handles=handles)
 
 
 

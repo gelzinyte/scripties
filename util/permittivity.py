@@ -97,6 +97,16 @@ def get_born_along_displacements(gamma_evecs, masses, born_charges):
 
 
 def epsilon_for_omega(omega, gamma_frequencies, numerator, volume, gamma, broadening_type):
+    """
+    arguments:
+    - omega: a single frequency (THz) at which to compute the permittivity 
+    - gamma_frequencies: phonon frequencies (THz)
+    - numerator:  C^2/kg
+    - volume: m^3
+    - gamma: broadening, THz-adjacent units (depends on broadening_type)
+    - broadening_type: proportionsl, individual or constant
+
+    """
 
     # broadening prop to frequency
     if broadening_type == "proportional":
