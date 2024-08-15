@@ -18,20 +18,36 @@ ga2o3_R = np.array([
 # rank 2: s'_ij =  R_ij a_kl s_kl                                       
 #         
 
+moo3_R = np.array([
+    [0, 0, 1],
+    [0, 1, 0],
+    [1, 0, 0]])
+
 
 def get_ga2o3_irreps_and_relevant_modes(phonon):
     phonon.set_irreps(q=[0,0,0])
     irrep_labels = phonon.irreps._get_ir_labels()
     if len(irrep_labels)!=30:
-        warnings.warn(f"Got {len(irrep_labels)} labels, not 30 as expected for Ga2O3. Overwriting manually.")
-        irrep_labels = np.array(['Bu', "Bu", "Au", 'Ag', 'Bg', 'Bg', 'Au', 'Ag', 'Ag', 'Bu', 'Bu', 'Bu', 'Au', 'Ag', 'Ag', 'Bu', 'Bg', 'Ag', 'Bu', 'Au', 'Ag', 'Bg', 'Bu', 'Ag', 'Bg', 'Ag', 'Au', 'Bu', 'Bu', 'Ag'])
+        raise RuntimeError("got the wrong number of irreps")
+        #warnings.warn(f"Got {len(irrep_labels)} labels, not 30 as expected for Ga2O3. Overwriting manually.")
+        #irrep_labels = np.array(['Bu', "Bu", "Au", 'Ag', 'Bg', 'Bg', 'Au', 'Ag', 'Ag', 'Bu', 'Bu', 'Bu', 'Au', 'Ag', 'Ag', 'Bu', 'Bg', 'Ag', 'Bu', 'Au', 'Ag', 'Bg', 'Bu', 'Ag', 'Bg', 'Ag', 'Au', 'Bu', 'Bu', 'Ag'])
 
-    relevant_mode_idcs = np.array([idx for idx, label in enumerate(irrep_labels) if label in ["Bu", "Au"]])
-    # skip the first three Acoustic modes
-    relevant_mode_idcs = relevant_mode_idcs[3:]
+    #relevant_mode_idcs = np.array([idx for idx, label in enumerate(irrep_labels) if label in ["Bu", "Au"] and idx>2])
+    relevant_mode_idcs=None
 
     return irrep_labels, relevant_mode_idcs
 
+def get_moo3_irreps_and_relevant_modes(phonon):
+    expected = 48
+
+    phonon.set_irreps(q=[0,0,0])
+    irrep_labels = phonon.irreps._get_ir_labels()
+    if len(irrep_labels)!=expected:
+        warnings.warn(f"Got {len(irrep_labels)} labels, not {expected} as expected. Overwriting manually.")
+    else:
+        irrep_labels = np.array(irrep_labels)
+
+    return irrep_labels
 
 def get_conventional_ga2o3_gamma_eigenvectors(qpoint_dict):
     # eigenvectors of dyn matrix
@@ -53,9 +69,5 @@ def get_conventional_ga2o3_gamma_eigenvectors(qpoint_dict):
     # So to rewrite for everyone
     conv_evecs = np.einsum("ij,hjk->hik", prim_to_conv_perm_mx, gamma_evecs)
     return conv_evecs
-
-
-
-
 
 

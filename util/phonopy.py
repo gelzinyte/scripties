@@ -1,3 +1,5 @@
+import numpy as np
+
 from ase.dft import kpoints
 from ase.io import read
 
@@ -7,6 +9,11 @@ from vibes.structure.convert import to_Atoms
 from vibes.helpers import brillouinzone as bz
 
 from util import phonopy as u_phonopy
+
+import phonopy
+from phonopy.file_IO import get_born_parameters
+import phono3py
+from phonopy.file_IO import parse_BORN
 
 def get_bands(atoms, paths=None, npoints=50, eps=0.0002):
     """Get the recommended BZ path(s) for atoms
@@ -85,6 +92,26 @@ def plot_total_dos(
     ax.grid(draw_grid)
 
 
+def postprocess_wfl(evaled_ats_fn, phonopy_yaml_fn, born_charges_file=None, prop_prefix="aims_"):
+
+    phonon = phonopy.load(phonopy_yaml_fn, produce_fc=False)
+    evaled_ats = read(evaled_ats_fn, ":")
+    supercells = phonon.get_supercells_with_displacements()
+    assert len(supercells) == len(evaled_ats)
+
+    force_sets = [at.arrays[f"{prop_prefix}forces"] for at in evaled_ats]
+    phonon.produce_force_constants(force_sets, calculate_full_force_constants=False)
+
+    # set nac parameters
+    prim = phonon.get_primitive()
+    psym = phonon.get_primitive_symmetry()
+    if born_charges_file is not None:
+        nac_params = get_born_parameters(open(born_charges_file), prim, psym)
+        phonon.set_nac_params(nac_params)
+
+    return phonon
+
+
 
 def phonon_and_labels(trajectory, born_file=None, eps=0.001, q_mesh=None, paths=None):
 
@@ -103,7 +130,7 @@ def phonon_and_labels(trajectory, born_file=None, eps=0.001, q_mesh=None, paths=
     return get_labels(phonon=phonon, eps=eps, q_mesh=q_mesh, paths=paths)
 
 
-def get_labels(phonon, eps, q_mesh, paths):
+def get_labels(phonon, eps=0.001, q_mesh=None, paths=None):
 
     at = to_Atoms(phonon.primitive)
     lat = at.cell.get_bravais_lattice(eps=eps)
@@ -114,7 +141,7 @@ def get_labels(phonon, eps, q_mesh, paths):
     print(lat)
     print(paths)
 
-    bands = u_phonopy.get_bands(at, paths=paths, eps=eps)
+    bands = get_bands(at, paths=paths, eps=eps)
     labels = bz.get_labels(paths)
     phonon.run_band_structure(bands, labels=labels)
 
@@ -169,5 +196,46 @@ def get_wfl_phonons(phonon, evaled_fn, prop_prefix, skip_first_image=True, eps=0
 
     return phonon, labels
 
+
+def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_q_direction, mesh_numbers, forces_key = "aims_forces"):
+
+    ph3 = phono3py.load(phono3py_yaml)
+    ats = read(calculated_atoms_fn, ":")
+
+    if BORN_filename is not None:
+        nac_params = parse_BORN(ph3.primitive, filename=BORN_filename)
+        ph3.nac_params = nac_params
+
+    # set force constants following vibes.phono3py.postprocess
+    supercells = ph3.get_supercells_with_displacements()
+
+    assert len(supercells) == len(ats)
+
+    force_sets = []
+    for sc, at in zip(supercells, ats):
+        if sc is None:
+            raise RuntimeError("supercell is none and I don't know if that's allowed")
+        force_sets.append(at.arrays[forces_key])
+    forces = np.array(force_sets)
+    ph3.forces =forces
+
+    #print(forces.shape)
+    #np.savetxt("FORCES_FC3", forces.reshape(-1,3))
+
+    ph3.produce_fc2()
+    ph3.produce_fc3()
+
+    #ph3.save("ph33py.disp.fc2fc3.yaml")
+
+    ph3.mesh_numbers = mesh_numbers
+    ph3.init_phph_interaction(nac_q_direction=nac_q_direction)
+
+    imag_self_energy = ph3.run_imag_self_energy(
+        grid_points=np.array([0]),
+        temperatures=[300],
+        frequency_points_at_bands=True,
+    )
+
+    return imag_self_energy
 
 
