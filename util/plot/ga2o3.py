@@ -45,7 +45,7 @@ def prepare_axes(omega_range, mmy=min_max_y, figsize=(8,8)):
     #dft_eps_0 = {}
 
     fig = plt.figure(figsize=figsize, constrained_layout=False)
-    outer_grid = fig.add_gridspec(2, 2, wspace=0.4, hspace=0.4)
+    outer_grid = fig.add_gridspec(2, 2, wspace=0.3, hspace=0.3)
 
     axes_dd = {
         "xx":{},
@@ -89,9 +89,9 @@ def prepare_axes(omega_range, mmy=min_max_y, figsize=(8,8)):
 
 
             ax_r.set_title(title)
-            ax_i.set_xlabel("IR mode frequency, cm$^{-1}$")
-            ax_r.set_ylabel("Real")
-            ax_i.set_ylabel("Imag")
+            ax_i.set_xlabel(r"$\omega$, cm$^{-1}$")
+            ax_r.set_ylabel(r"Re($\varepsilon)$")
+            ax_i.set_ylabel(r"Im($\varepsilon)$")
 
     return axes_dd
 
@@ -141,9 +141,10 @@ def schubert(axes_dd, omega_range, epsilon_infinity_contribution=True, plot_kwar
         ax_i.plot(omega_range, ys.imag, **plot_kwargs)
 
 
-        tt = ax_r.text(omega_range[0], ys[0].real+20, f'{ys[0].real:.1f}',)
+        #tt = ax_r.text(omega_range[0], ys[0].real+20, f'{ys[0].real:.1f}',)
+        tt=None
 
-        plt.suptitle("Schubert $\\varepsilon_r$, no FCC", y=0.93)
+        #plt.suptitle("Schubert $\\varepsilon_r$, no FCC", y=0.93)
 
     return tt
 

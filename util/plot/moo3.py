@@ -66,9 +66,9 @@ def prepare_axes(omega_range,  figsize=(8,8)):
             ax_i.set_ylim((0, 600))
 
             ax_r.set_title(title)
-            ax_i.set_xlabel("IR mode frequency, cm$^{-1}$")
-            ax_r.set_ylabel("Real")
-            ax_i.set_ylabel("Imag")
+            ax_i.set_xlabel(r"$\omega$, cm$^{-1}$")
+            ax_r.set_ylabel(r"Re($\varepsilon$)")
+            ax_i.set_ylabel(r"Im($\varepsilon$)")
 
     return axes_dd
 

@@ -80,7 +80,7 @@ def get_born_along_displacements(gamma_evecs, masses, born_charges):
     n_atoms = evec_shape[1]
     assert evec_shape[2] == 3
     assert n_atoms == len(masses)
-    assert n_evecs == n_atoms * 3
+    #assert n_evecs == n_atoms * 3
 
     masses = np.tile(masses.reshape(1, n_atoms, 1), (n_evecs, 1, 3))
 

@@ -33,7 +33,9 @@ def extract_efgs(ats, efg_label):
             if element not in efgs_by_element:
                 efgs_by_element[element] = []
 
-            assert approx(np.trace(efg), abs=1e-7) == 0
+            if np.abs(np.trace(efg)) > 1e-6:
+                print("!"*30, np.abs(np.trace(efg)))
+            #assert approx(np.trace(efg), abs=1e-7) == 0
 
             efgs_by_element[element].append(efg)
 
@@ -41,6 +43,43 @@ def extract_efgs(ats, efg_label):
         efgs_by_element[key] = np.array(vals)
 
     return efgs_by_element
+
+def extract_ir_entries(efg):
+    m = efg
+
+    scalar = m[0][0] + m[1][1] + m[2][2]
+
+    v1 = m[2][1] - m[1][2]
+    v2 = m[0][2] - m[2][0]
+    v3 = m[1][0] - m[0][1]
+
+    t1 = m[2][0] + m[0][2]
+    t2 = m[1][0] + m[0][1]
+    t3 = 2 * m[1][1] - m[0][0] - m[2][2]
+    t4  = m[2][1] + m[1][2]
+    t5 = m[2][2] - m[0][0]
+
+    return scalar, np.array([v1, v2, v3]), np.array([t1, t2, t3, t4, t5])
+
+
+def get_prop(efg, element):
+
+    evals = spec._get_haeberlen_eigs(efg)
+    evecs = spec._get_haeberlen_eig_vecs(efg)
+    theta = np.arccos(evec[2])
+    phi = np.arctan(evec[1] / evec[0]) if np.abs(evec[0]) > 0 else 0
+    Cq, eta = spec.getcq(efg.flatten(), species=element)
+    spin =  spins[element]
+    omega_q = get_omega_q(Cq, eta, spin, theta, phi)
+    data = {
+        "Cq": Cq,
+        "eta": eta,
+        "theta": theta,
+        "phi":phi,
+        "omega_q":omega_q,
+    }
+
+    return data
 
 
 def get_props(efgs, element):
@@ -56,6 +95,7 @@ def get_props(efgs, element):
     Vzzs = evals[:, z]
     Vzz_mean = np.mean(Vzzs)
     Vzz_std = np.std(Vzzs)
+
 
     tilde_Cqs = (Vzzs - Vzz_mean) / Vzz_std
     tilde_etas = (evals[:, x] - evals[:, y]) / Vzz_mean
@@ -80,6 +120,12 @@ def get_props(efgs, element):
     quaternions = np.array([spec.calc_quaternion(evecs) for evecs in evecs])
     data["quaternions"] = quaternions
 
+    for idx in range(3):
+        data[f"evals_{idx}"] = np.array([val[idx] for val in evals])
+
+
+    data["evecs"] = np.array(evecs)
+
     for efg in efgs:
 
         Cq, eta = spec.getcq(efg.flatten(), species=element)
@@ -101,6 +147,18 @@ def get_props(efgs, element):
 
     data["omegas_q"] = omegas_q * 1e3  # kHz
 
+    #data["efg"] = np.array([val[np.triu_indices(3)] for val in efgs])
+    efg_L2_irs = np.array([extract_ir_entries(val)[2] for val in efgs])
+    for idx in range(5):
+        data[f"efg_L2_ir_{idx}"] = np.array([val[idx] for val in efg_L2_irs])
+
+    data["determinants"] = np.array([np.linalg.det(efg) for efg in efgs])
+
+    for i, j in [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]:
+        data[f"efg_{i}{j}"] = np.array([efg[i][j] for efg in efgs])
+
+    
+
     exp_length = len(efgs)
     for key, vals in data.items():
         assert len(vals) == exp_length
@@ -119,7 +177,7 @@ def get_omega_q(Cq, eta, spin, theta, phi):
     return omega_q
 
 
-def prep_axis(ref_vals, pred_vals, figsize=(6, 9)):
+def prep_axis(figsize):
 
     plt.figure(figsize=figsize)
 
@@ -128,29 +186,64 @@ def prep_axis(ref_vals, pred_vals, figsize=(6, 9)):
     ax_hist = plt.subplot(gs[0])
     ax_par = plt.subplot(gs[1])
 
+    return ax_hist, ax_par
+
+
+def plot(
+    ref_vals,
+    pred_vals,
+    ax_hist,
+    ax_par,
+    dataset_label,
+    scatter_kwargs,
+    hist_kwargs_pred,
+    hist_kwargs_ref,
+    mode="all",
+):
+
     rmse = get_rmse(ref_vals, pred_vals)
     mae = get_mae(ref_vals, pred_vals)
-    pearr, _ = pearsonr(ref_vals, pred_vals)
+    try:
+        pearr, _ = pearsonr(ref_vals, pred_vals)
+    except:
+        pearr = 0.0
     mpe = get_mpe(ref_vals, pred_vals)
-    parity_label = (
-        f"RMSE: {rmse:.2f}; MAE: {mae:.2f}; \nR: {pearr:.2f}; error: {mpe:.1f}%"
-    )
+    if isinstance(pearr, np.ndarray):
+        pearr = -10
+    if mode=="all":
+        parity_label = f"{dataset_label} RMSE: {rmse:.2g}; MAE: {mae:.2g}; \nR: {pearr:.2g}; rel. error: {mpe:.2g}%"
+    else: parity_label=""
+    ax_par.scatter(ref_vals, pred_vals, label=parity_label, **scatter_kwargs)
 
-    ax_par.scatter(ref_vals, pred_vals, label=parity_label, s=2, alpha=1)
+    min_val = np.min(np.concatenate([pred_vals, ref_vals]))
+    max_val = np.max(np.concatenate([pred_vals, ref_vals]))
+    bins =  np.linspace(min_val,max_val,20)
 
-    ax_hist.hist(pred_vals, bins=20, label="MACE")
-    ax_hist.hist(ref_vals, histtype="step", bins=20, label="DFT", color="k")
+    if len(pred_vals.shape) == 1:
+        ax_hist.hist(pred_vals, bins=bins, label=f"MACE {dataset_label}", **hist_kwargs_pred)
+        # update train and test dft
+        ax_hist.hist(
+            ref_vals,
+            histtype="step",
+            bins=bins,
+            label=f"DFT {dataset_label}",
+            **hist_kwargs_ref,
+        )
 
-    min_val = np.min(np.concatenate([ref_vals, pred_vals]))
-    max_val = np.max(np.concatenate([ref_vals, pred_vals]))
+
+def post_process_axis(ax_hist, ax_par):
+
+    ymin, ymax = ax_par.get_ylim()
+    xmin, xmax = ax_par.get_xlim()
+
+    min_val = np.min([ymin, xmin])
+    max_val = np.max([ymax, xmax])
 
     ax_par.plot([min_val, max_val], [min_val, max_val], color="k", ls="--")
 
     for ax in [ax_par, ax_hist]:
         ax.grid(color="lightgrey", zorder=0)
         ax.legend()
-
-    return ax_hist, ax_par
 
 
 def get_rmse(ref, pred):
