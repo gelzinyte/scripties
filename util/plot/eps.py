@@ -4,6 +4,51 @@ import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 
 
+polariton_type_colors = {
+    "dielectric": "white",
+    "elliptical": "#bababa",
+    "I_out-of-plane": "#f59a97",
+    "I_in-plane": "#abdef9",
+    "II_out-of-plane": "#fdec7e",
+    "II_in-plane": "#bdddb8",
+}
+
+
+rifs = {"r": np.real, "i": np.imag}
+
+
+
+def get_gamma_diag_eps_via_evecs(eps):
+    evals, evecs = np.linalg.eig(eps.real)
+    D = np.eye(len(evals)) * evals
+    P = evecs
+    A = eps.real
+    assert np.allclose(D, np.linalg.inv(P) @ A @ P)
+    gamma_from_evec = np.arccos(P[0][0]) * 180 / np.pi
+    gamma_from_evec = gamma_from_evec if P[1][0] > 0 else gamma_from_evec * -1
+
+
+    rotated_eps = np.linalg.inv(P) @ eps @ P
+
+    # z and either x or y axes got swapped 
+    if np.isclose(P[2][2], 0, atol=1e-2):
+        # either [0][2] (around y axis) or [1][2] (around x axis) element is non zero +-sin(theta) 
+        # from the other side - 
+        # either [0][2] (around x axis) or [1][2] (around y axis) is zero
+        if np.isclose(P[0][2], 0, atol=1e-3):
+            assert np.abs(P[0][2]) < np.abs(P[1][2])
+            rotate_around = "x"
+        elif np.isclose(P[1][2], 0, atol=1e-3):
+            assert np.abs(P[1][2]) < np.abs(P[0][2])
+            rotate_around = "y"
+
+        rotated_eps = rotate_mx(rotated_eps, 90, rot_axis=rotate_around)
+
+
+
+    return gamma_from_evec, rotated_eps, P
+
+
 def into_regions(section_indices, eps_array):
     eps_ranges = []
     for indices in section_indices:
@@ -98,10 +143,15 @@ def smooth_gammas(gammas_ranges, omega_ranges):
     return shifted_gammas_out, jump_regions
 
 
-def get_gamma_regions(gammas, TO_freqs, omega_range_inv_cm, gamma_no_plot_tol):
+def get_gamma_regions(gammas, phonon_freqs, omega_range_inv_cm, gamma_no_plot_tol):
+    """ partition gammas at TO freqs and cut out `gamma_no_plot_tol` on either side"""
+
+    phonon_freqs = np.array([freq for freq in phonon_freqs  if freq > omega_range_inv_cm[0] and freq < omega_range_inv_cm[-1]])
+    phonon_freqs = np.sort(phonon_freqs)
+
 
     split_freqs = [
-        x for ff in TO_freqs for x in (ff - gamma_no_plot_tol, ff + gamma_no_plot_tol)
+        x for ff in phonon_freqs for x in (ff - gamma_no_plot_tol, ff + gamma_no_plot_tol)
     ]
     split_indices = [(np.abs(omega_range_inv_cm - ff)).argmin() for ff in split_freqs]
     omega_range_indices = np.arange(len(omega_range_inv_cm))
@@ -113,6 +163,9 @@ def get_gamma_regions(gammas, TO_freqs, omega_range_inv_cm, gamma_no_plot_tol):
 
     for idx, indices_to_plot in enumerate(indices_for_gamma_sections):
         if idx % 2 == 1:
+            continue
+
+        if len(indices_to_plot) == 0:
             continue
 
         gammas_out.append(gammas[indices_to_plot])
@@ -202,9 +255,10 @@ def post_gamma_axs(ax, omega_range_inv_cm, TO_freqs):
 
     ax.set_xlim(omega_range_inv_cm[0], omega_range_inv_cm[-1])
     ax.minorticks_on()
+    ax.set_ylabel(r"$\gamma(\omega)$")
 
 
-def setup_axes(axs_specs, labels):
+def setup_axes_compare(axs_specs, labels):
 
     side = 2.5
     col_width = side * 3
@@ -247,7 +301,52 @@ def setup_axes(axs_specs, labels):
     return all_eps_axes, all_gamma_axes
 
 
-def post_eps_ax(ax, sp, min_max_y):
+def setup_axes_analyse(axs_specs):
+
+    side = 2.5
+    col_width = side * 3
+    row_height = side
+
+    num_cols = 1
+    num_rows = 2 + len(axs_specs)
+    width = col_width * num_cols
+    height = row_height * num_rows
+
+    fig = plt.figure(figsize=(width, height))
+    gs = fig.add_gridspec(ncols=num_cols, nrows=num_rows, wspace=0, hspace=0)
+
+    all_axes = {}
+
+    ax_gamma = fig.add_subplot(gs[1, 0])
+    #all_axes["gamma"] = ax_gamma
+
+    at_grid = gs[0, 0].subgridspec(1, 3, wspace=0, hspace=0)
+    axs_at = at_grid.subplots()
+
+
+    for idx, axsp in enumerate(axs_specs):
+
+        ax_label = "".join(str(sp) for sp in axsp)
+
+        ax = fig.add_subplot(gs[idx + 2, 0], sharex=ax_gamma)
+        all_axes[ax_label] = ax
+
+        # Remove the spines
+    for ax in axs_at:
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        # Remove the ticks
+        ax.xaxis.set_ticks([])
+        ax.yaxis.set_ticks([])
+
+
+    return ax_gamma, all_axes, axs_at 
+
+
+
+def post_eps_ax(ax, sp, min_max_y=None):
 
     conv = "xyz"
     t = conv[sp[0]] + conv[sp[1]]
@@ -257,20 +356,21 @@ def post_eps_ax(ax, sp, min_max_y):
     if sp[2] == "i":
         ax.set_ylabel(f"{t} Imag")
 
-    axmin = min_max_y[t][sp[2]]["min"]
-    axmax = min_max_y[t][sp[2]]["max"]
+    if min_max_y is not None:
+        axmin = min_max_y[t][sp[2]]["min"]
+        axmax = min_max_y[t][sp[2]]["max"]
 
-    ax.set_ylim(axmin, axmax)
+        ax.set_xlim(axmin, axmax)
 
-    xmin, xmax = ax.get_xlim()
     ax.hlines(
         y=0,
-        xmin=xmin,
-        xmax=xmax,
+        xmin=axmin,
+        xmax=axmax,
         color="k",
         lw=1,
         zorder=0,
     )
+    ax.minorticks_on()
 
 
 def smooth_90_jumps(gamma_ranges):
@@ -330,3 +430,41 @@ def color_polariton_regions(
                         color=polariton_type_colors[pol_type_label],
                         zorder=-1,
                     )
+
+def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_freqs):
+
+    min_oo = np.min([np.min(oo) for oo in omega_ranges])
+    max_oo = np.max([np.max(oo) for oo in omega_ranges])
+    xticks = np.arange(round(min_oo, -2)+100, max_oo, 100)
+
+    for ax_idx, (sp, ax) in enumerate(zip(axs_specs, axs_eps.values())):
+
+        conv = "xyz"
+        t = conv[sp[0]] + conv[sp[1]]
+
+        for idx, (eps_range, omega_range) in enumerate(
+            zip(eps_for_omega_tidy, omega_ranges)
+        ):
+            ys = rifs[sp[2]](eps_range[:, sp[0], sp[1]])
+            if sp[0] != sp[1] and sp[2] == "i":
+                ys = np.abs(ys)
+            ax.plot(omega_range, ys, color="k", label=None, ls="-")
+
+        min_max_y = {t:{sp[2]:{"min":min_oo, "max":max_oo}}}
+        post_eps_ax(ax, sp, min_max_y=min_max_y)
+
+        rmin, rmax = ax.get_ylim()
+        ax.vlines(phonon_freqs, rmin, rmax, lw=0.5, color="k", label=r"$\omega_{TO}$")
+        ax.set_ylim(rmin, rmax)
+
+        if ax_idx == len(axs_specs) - 1:
+            xlabel = ax.set_xlabel(r"Frequency, cm$^{-1}$")
+            xlabel.set_zorder(2)
+
+            ax.tick_params(axis="both", which="both", zorder=2)
+            for spine in ax.spines.values():
+                spine.set_zorder(2)
+        
+            ax.set_xticks(xticks)
+
+
