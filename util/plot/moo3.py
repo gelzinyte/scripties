@@ -42,7 +42,6 @@ def prepare_axes(omega_range,  figsize=(8,8)):
         "xx":{},
         "yy":{},
         "zz":{},
-        "xy":{}
     }
 
     for id1, xyz1 in enumerate(["x", "y", "z"]):

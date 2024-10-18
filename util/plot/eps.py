@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 from scipy.spatial.transform import Rotation as R
 
@@ -301,14 +302,16 @@ def setup_axes_compare(axs_specs, labels):
     return all_eps_axes, all_gamma_axes
 
 
-def setup_axes_analyse(axs_specs):
+def setup_axes_analyse(axs_specs, make_gamma_ax=True):
 
     side = 2.5
     col_width = side * 3
     row_height = side
 
     num_cols = 1
-    num_rows = 2 + len(axs_specs)
+    num_rows = 1 + len(axs_specs)
+    if make_gamma_ax:
+        num_rows += 1
     width = col_width * num_cols
     height = row_height * num_rows
 
@@ -316,20 +319,33 @@ def setup_axes_analyse(axs_specs):
     gs = fig.add_gridspec(ncols=num_cols, nrows=num_rows, wspace=0, hspace=0)
 
     all_axes = {}
-
-    ax_gamma = fig.add_subplot(gs[1, 0])
-    #all_axes["gamma"] = ax_gamma
+    start_ax_idx = 1
+    
+    if make_gamma_ax:
+        ax_gamma = fig.add_subplot(gs[1, 0])
+        start_ax_idx += 1
+    else:
+        ax_gamma = None
 
     at_grid = gs[0, 0].subgridspec(1, 3, wspace=0, hspace=0)
     axs_at = at_grid.subplots()
 
+    ref_share_y = None
 
     for idx, axsp in enumerate(axs_specs):
 
+        if axsp[2] == "i":
+            sharey = None
+        elif ref_share_y is None:
+            sharey = None
+
         ax_label = "".join(str(sp) for sp in axsp)
 
-        ax = fig.add_subplot(gs[idx + 2, 0], sharex=ax_gamma)
+        ax = fig.add_subplot(gs[idx + start_ax_idx, 0], sharex=ax_gamma, sharey=sharey)
         all_axes[ax_label] = ax
+
+        if axsp[2] == "r" and ref_share_y is None:
+            ref_share_y = ax
 
         # Remove the spines
     for ax in axs_at:
@@ -420,7 +436,11 @@ def color_polariton_regions(
 
     pol_region_bounds = [get_label_regions(pol_types) for pol_types in pol_type_labels]
 
-    for ax in axs_dict.values():
+
+    first_ax_label = None
+    for idx, (ax_label, ax) in enumerate(axs_dict.items()):
+        if ax_label[2] == "i" and first_ax_label is None: 
+            first_ax_label = ax_label
         for pol_type_dd, omega_range in zip(pol_region_bounds, omega_ranges):
             for pol_type_label, stretch_bounds in pol_type_dd.items():
                 for bp in stretch_bounds:
@@ -430,6 +450,31 @@ def color_polariton_regions(
                         color=polariton_type_colors[pol_type_label],
                         zorder=-1,
                     )
+    
+    handles = [mpatches.Patch(color=color, label=label) for label, color in polariton_type_colors.items()]
+    axs_dict[first_ax_label].legend(handles=handles) 
+
+    return get_polariton_region_widths(omega_ranges, pol_region_bounds)
+
+def get_polariton_region_widths(omega_ranges, pol_region_bounds):
+
+    scores_dict = {}
+
+    for region_bounds, omega_range in zip(pol_region_bounds, omega_ranges):
+        for label, bounds in region_bounds.items():
+
+            if label not in scores_dict:
+                scores_dict[label] = 0
+
+            scores_dict[label] += np.sum([omega_range[bb[1]] - omega_range[bb[0]] for bb in bounds])
+
+    total_pol_region = np.sum([val for key, val in scores_dict.items() if key!="dielectric"])
+    scores_dict["total_accounted_for"] =  np.sum([val for key, val in scores_dict.items()])
+    scores_dict["total_polariton"] = total_pol_region
+
+    return scores_dict
+
+
 
 def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_freqs):
 
