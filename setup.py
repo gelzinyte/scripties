@@ -5,7 +5,9 @@ setuptools.setup(
     instlal_requires=[
         "numpy",
         "matplotlib",
-        "pytest"
+        "pytest",
+        "pandas",
+
     ],
     packages=["util"],
 )
