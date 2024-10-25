@@ -88,40 +88,110 @@ def get_schubert(omega_range, epsilon_inf=True):
 
     return data
 
+def get_schubert_individual_lorentz_oscillators(which, omega_range):
+
+    assert which == "z"
+
+    Bu = mode_data.loc[mode_data["symmetry"] == "Bu"]
+    Au = mode_data.loc[mode_data["symmetry"] == "Au"]
+
+    eps_zz = np.array(
+        [
+            get_rho(omega, Au["A"], Au["freq"], Au["scatter"])
+            for omega in omega_range
+        ]
+    )
+
+    eps_zz += xyz_data["high_freq"]["zz"]
+
+    data = {"zz": eps_zz}
+
+    return data
+
+
+import bisect
+def find_first_above_threshold(numbers, threshold):
+    index = bisect.bisect_right(numbers, threshold)
+    return index if index < len(numbers) else -1
 
 def get_schubert_mode_eps_zero(which, eps_infty, alpha, A, freq, scattering_gamma):
     """alpha in radians"""
 
+
     assert which in ["xy", "z"]
 
     if which == "z":
-        eps_const = -1 * eps_infty[2][2]
+        eps_const = -eps_infty[2][2]
     elif which == "xy":
         top = eps_infty[1][0] ** 2 - eps_infty[0][0] * eps_infty[1][1]
         bottom = eps_infty[0][0] * np.sin(alpha) ** 2
         bottom += eps_infty[1][1] * np.cos(alpha) ** 2
         bottom -= 2 * eps_infty[0][1] * np.sin(alpha) * np.cos(alpha)
         eps_const = top / bottom
+    else:
+        raise ValueError(f'"which" should be either "xy" or "z", but got {which}')
 
     # quadratic equation
-    A = eps_const
-    B = scattering_gamma**2 * eps_const - 2 * freq**2 * eps_const + A**2
-    C = eps_const * freq**4 - A**2 * freq**2
+    QA = eps_const
+    QB = scattering_gamma**2 * eps_const - 2 * freq**2 * eps_const + A**2
+    QC = eps_const * freq**4 - A**2 * freq**2
+
+    return solve_quadratic(A=QA, B=QB, C=QC) 
+
+def get_lorentz_roots(eps_infty, phonon_freq, S, V, scattering_gamma):
+
+    c = get_eps_infty_S_constant(eps_infty, S)
+    
+    A = c * V
+    B = c * V * (scattering_gamma ** 2 - phonon_freq ** 2) + 1
+    C = c * V * (phonon_freq ** 4 - phonon_freq **2)
+
+    return solve_quadratic(A=A, B=B, C=C)
+
+
+def get_eps_infty_S_constant(eps_infty, S):
+
+    # make notation easier 
+    e = eps_infty
+    x=0
+    y=1
+    z=2
+
+    top = e[x][x] * e[y][y] * e[z][z] \
+        + 2 * e[x][y] * e[y][z] * e[z][x] \
+        - e[x][x] * e[y][z] ** 2 \
+        - e[y][y] * e[z][x] ** 2 \
+        - e[z][z] * e[x][z] ** 2
+
+    bottom = e[x][x] * e[y][y] * S[z] ** 2 \
+           + e[y][y] * e[z][z] * S[x] ** 2 \
+           + e[z][z] * e[x][x] * S[y] ** 2 \
+           - e[x][y] ** 2 * S[z] ** 2 \
+           - e[y][z] ** 2 * S[x] ** 2 \
+           - e[z][x] ** 2 * S[y] ** 2 \
+           - 2 * e[x][x] * e[y][z] * S[y] * S[z] \
+           - 2 * e[y][y] * e[z][x] * S[z] * S[x] \
+           - 2 * e[z][z] * e[x][y] * S[x] * S[y] \
+           + 2 * e[x][y] * e[y][z] * S[x] * S[z] \
+           + 2 * e[y][z] * e[z][x] * S[y] * S[x] \
+           + 2 * e[z][x] * e[x][z] * S[x] * S[z] 
+
+    return -top / bottom
+
+
+
+def solve_quadratic(A, B, C):
 
     D = B**2 - 4 * A * C
 
-    root1 = (-1 * B - np.sqrt(D)) / (2 * A)
-    root2 = (-1 * B + np.sqrt(D)) / (2 * A)
+    root1 = (+1 * B - np.sqrt(D)) / (2 * A)
+    root2 = (+1 * B + np.sqrt(D)) / (2 * A)
 
-    # xor
-    assert bool(root1 < 0) != bool(root2 < 0)
 
-    omega_0_2 = root1 if root1 > 0 else root2
-
-    omega_0 = np.sqrt(np.abs(omega_0_2))
-
-    return omega_0
-
+    omega_0_1 = np.sqrt(np.abs(root1))
+    omega_0_2 = np.sqrt(np.abs(root2))
+    
+    return omega_0_1, omega_0_2
 
 def get_schubert_normalised_coupling_strengths():
 
@@ -132,15 +202,32 @@ def get_schubert_normalised_coupling_strengths():
     eps_infty[1][1] = xyz_data["high_freq"]["yy"]
     eps_infty[2][2] = xyz_data["high_freq"]["zz"]
 
-    warnings.warn("No FCC contribution to schubert permittivity")
-
     Bu = mode_data.loc[mode_data["symmetry"] == "Bu"]
     Au = mode_data.loc[mode_data["symmetry"] == "Au"]
 
-    xy_crossings = get_schubert_mode_eps_zero("xy", eps_infty, Bu["angle"], Bu["A"], Bu["freq"], Bu["scatter"]
-    z_crossings = get_schubert_mode_eps_zero("z", eps_infty, Au["angle"], Au["A"], Au["freq"], Au["scatter"])
+    z_cross_1, z_cross_2 = get_schubert_mode_eps_zero("z", eps_infty, Au["angle"], Au["A"], Au["freq"], Au["scatter"])
+    xy_cross_1, xy_cross_2 = get_schubert_mode_eps_zero("xy", eps_infty, Bu["angle"], Bu["A"], Bu["freq"], Bu["scatter"])
 
-    return  xy_crossings, z_crossings
+    df_z = pd.DataFrame({"omega_sigma":z_cross_1, "omega_eps_0": z_cross_2, "axis":["z"]*len(z_cross_1)})
+    df_xy = pd.DataFrame({"omega_sigma":xy_cross_1, "omega_eps_0": xy_cross_2, "axis":["xy"]*len(xy_cross_1)})
+    
+    df_z["Schubert k"] = mode_data.iloc[df_z.index]["k"]
+    df_xy["Schubert k"] = mode_data.iloc[df_xy.index]["k"]
+
+    df = pd.concat([df_xy, df_z])
+    
+    df["eta"] = np.sqrt(df["omega_eps_0"]**2 - df["omega_sigma"]**2) / df["omega_sigma"]
+
+    new_column_order = [
+        "Schubert k",
+        "eta",
+        "omega_sigma",
+        "omega_eps_0",
+        "axis",
+    ]
+    df = df[new_column_order]
+
+    return df 
 
 
 #     

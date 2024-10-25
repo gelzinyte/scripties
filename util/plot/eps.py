@@ -15,6 +15,17 @@ polariton_type_colors = {
 }
 
 
+polariton_print_labels = {
+    "dielectric": "dielectric",
+    "elliptical": "ellptical",
+    "I_out-of-plane": r"I$_\bot$",
+    "I_in-plane": r"I$_\parallel$",
+    "II_out-of-plane": r"II$_\bot$",
+    "II_in-plane": r"II$_\parallel$",
+}
+
+
+
 rifs = {"r": np.real, "i": np.imag}
 
 
@@ -208,14 +219,14 @@ def get_eps_type(eps):
 
     if zz < 0:
         if polariton_type == "I":
-            direction = "out-of-plane"
+            direction = r"out-of-plane"
         elif polariton_type == "II":
-            direction = "in-plane"
+            direction = r"in-plane"
     elif zz > 0:
         if polariton_type == "I":
-            direction = "in-plane"
+            direction = r"in-plane"
         elif polariton_type == "II":
-            direction = "out-of-plane"
+            direction = r"out-of-plane"
 
     return polariton_type + "_" + direction
 
@@ -427,7 +438,7 @@ def smooth_epsilons(diag_raw_epsilons, orig_gamma_regions, tidy_gamma_regions):
 
 
 def color_polariton_regions(
-    axs_dict, tidy_eps_ranges, polariton_type_colors, omega_ranges
+    axs_dict, tidy_eps_ranges, polariton_type_colors, omega_ranges,polariton_print_labels
 ):
 
     pol_type_labels = [
@@ -450,8 +461,8 @@ def color_polariton_regions(
                         color=polariton_type_colors[pol_type_label],
                         zorder=-1,
                     )
-    
-    handles = [mpatches.Patch(color=color, label=label) for label, color in polariton_type_colors.items()]
+
+    handles = [mpatches.Patch(color=color, label=polariton_print_labels[label]) for label, color in polariton_type_colors.items()]
     axs_dict[first_ax_label].legend(handles=handles) 
 
     return get_polariton_region_widths(omega_ranges, pol_region_bounds)
