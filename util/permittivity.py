@@ -6,6 +6,8 @@ import pandas as pd
 from pathlib import Path
 import util
 
+import bisect
+
 from scipy.constants import epsilon_0
 from scipy.spatial.transform import Rotation as R
 
@@ -109,7 +111,6 @@ def get_schubert_individual_lorentz_oscillators(which, omega_range):
     return data
 
 
-import bisect
 def find_first_above_threshold(numbers, threshold):
     index = bisect.bisect_right(numbers, threshold)
     return index if index < len(numbers) else -1
@@ -140,11 +141,16 @@ def get_schubert_mode_eps_zero(which, eps_infty, alpha, A, freq, scattering_gamm
 
 def get_lorentz_roots(eps_infty, phonon_freq, S, V, scattering_gamma):
 
-    c = get_eps_infty_S_constant(eps_infty, S)
     
-    A = c * V
-    B = c * V * (scattering_gamma ** 2 - phonon_freq ** 2) + 1
-    C = c * V * (phonon_freq ** 4 - phonon_freq **2)
+
+    assert np.all(S.imag == 0)
+    S = S.real
+
+    const = np.array([get_eps_infty_S_constant(eps_infty, s_row) for s_row in S])
+    
+    A = const * V
+    B = const * V * (scattering_gamma ** 2 - phonon_freq ** 2) + 1
+    C = const * V * (phonon_freq ** 4 - phonon_freq **2)
 
     return solve_quadratic(A=A, B=B, C=C)
 
@@ -193,6 +199,7 @@ def solve_quadratic(A, B, C):
     
     return omega_0_1, omega_0_2
 
+
 def get_schubert_normalised_coupling_strengths():
 
     eps_infty = np.zeros((3, 3))
@@ -215,6 +222,11 @@ def get_schubert_normalised_coupling_strengths():
     df_xy["Schubert k"] = mode_data.iloc[df_xy.index]["k"]
 
     df = pd.concat([df_xy, df_z])
+
+    return compute_clean_coupling_strength_df(df)
+
+
+def compute_clean_coupling_strength_df(df): 
     
     df["eta"] = np.sqrt(df["omega_eps_0"]**2 - df["omega_sigma"]**2) / df["omega_sigma"]
 
@@ -230,42 +242,55 @@ def get_schubert_normalised_coupling_strengths():
     return df 
 
 
-#     
-#         etas_dict["etas"].append(eta)
-#         etas_dict["omega_phonon"].append(phonon_freq * util.THz_to_inv_cm)
-#         etas_dict["omega_eps0"].append(freq_eps_0)
-#         etas_dict["response_direction"].append(orig_response_in)
-#         etas_dict["phonon_idx"].append(phonon_idx)
-# 
+
+def compute_dft_normalised_coupling_strengths(eps_infty,  phonon_freq, S, volume, scattering_gamma, broadening_type):
+
+    scattering_gamma = get_broadening(
+            gamma_frequencies=phonon_freq,
+            gamma=scattering_gamma,
+            broadening_type=broadening_type)
+
+    roots1, roots2 = get_lorentz_roots(
+            eps_infty=eps_infty, 
+            phonon_freq=phonon_freq, 
+            S=S, 
+            V=volume, 
+            scattering_gamma=scattering_gamma
+    )
+    import pdb; pdb.set_trace()
+        
 
 
 
-# 
-# def etas_dict_to_df(etas_dict):
-# 
-#     etas_df = pd.DataFrame(etas_dict, index=etas_dict["phonon_idx"])
-#     etas_df = etas_df.sort_values(by="omega_phonon", ascending=True)
-#     etas_df.reset_index(drop=True, inplace=True)
-# 
-#     etas_df["etas"] = etas_df["etas"].map(
-#         lambda x: f"{x:.2f}" if isinstance(x, float) else x
-#     )
-#     etas_df["omega_phonon"] = etas_df["omega_phonon"].map(lambda x: f"{x:.0f}")
-#     etas_df["omega_eps0"] = etas_df["omega_eps0"].map(
-#         lambda x: f"{x:.0f}" if isinstance(x, float) else x
-#     )
-# 
-#     column_renames = {
-#         "etas": "$\eta_\sigma$",
-#         "omega_phonon": "$\omega_\sigma$ [cm$^{-1}$]",
-#         "omega_eps0": "$\omega_{\sigma, \\varepsilon=0}$ [cm$^{-1}$]",
-#         "response_direction": "original component",
-#         "phonon_idx": "phonon no.",
-#     }
-#     etas_df = etas_df.rename(columns=column_renames)
-# 
-#     return etas_df
-# 
+def plot_single_mode(gamma_frequencies, S, volume, gamma, broadening_type):
+
+    numerator = get_numerator(S)
+
+    omega_range
+
+    epsilon_for_omega(
+        omega, gamma_frequencies, numerator, volume, gamma, broadening_type
+    )
+
+
+
+def get_broadening(gamma_frequencies, gamma, broadening_type):
+
+    # broadening prop to frequency
+    if broadening_type == "proportional":
+        return gamma_frequencies**2 * gamma  # THz
+    elif broadening_type == "individual":
+        assert gamma.shape == gamma_frequencies.shape
+        return gamma
+    elif broadening_type == "constant":
+        return gamma  # THz
+    else:
+        raise RuntimeError(
+            f"gamma is of type {type(gamma)} neither float nor numpy array."
+        )
+
+
+
 
 
 def get_born_along_displacements(gamma_evecs, masses, born_charges):
