@@ -138,6 +138,23 @@ def get_schubert_mode_eps_zero(which, eps_infty, alpha, A, freq, scattering_gamm
     return solve_quadratic(A=QA, B=QB, C=QC)
 
 
+def get_single_orhogonal_lorentz_root(eps_infty_nn, phonon_freq, S_nn, V, const_gamma):
+
+    assert S_nn.imag == 0
+    S_nn = S_nn.real
+    
+    const = -1 * eps_infty_nn / (S_nn ** 2 )
+
+    A = const * V
+    B = const * V * (const_gamma ** 2 - 2 * phonon_freq ** 2) + 1
+    C = const * V * phonon_freq ** 4 - phonon_freq ** 2
+
+    import pdb; pdb.set_trace()
+    
+    return solve_quadratic(A=A, B=B, C=C)
+
+
+
 def get_lorentz_roots(eps_infty, phonon_freq, S, V, scattering_gamma):
 
     assert np.all(S.imag == 0)
@@ -146,8 +163,8 @@ def get_lorentz_roots(eps_infty, phonon_freq, S, V, scattering_gamma):
     const = np.array([get_eps_infty_S_constant(eps_infty, s_row) for s_row in S])
 
     A = const * V
-    B = const * V * (scattering_gamma**2 - phonon_freq**2) + 1
-    C = const * V * (phonon_freq**4 - phonon_freq**2)
+    B = const * V * (scattering_gamma**2 - 2* phonon_freq**2) + 1
+    C = const * V * phonon_freq**4 - phonon_freq**2
 
     return solve_quadratic(A=A, B=B, C=C)
 
@@ -261,7 +278,7 @@ def compute_dft_normalised_coupling_strengths(
     eps_infty, phonon_freq, S, volume, scattering_gamma, broadening_type
 ):
 
-    plot_single_mode(
+    ax = plot_single_mode(
         mode_idx=-4,
         gamma_frequencies=phonon_freq,
         S=S,
@@ -272,23 +289,180 @@ def compute_dft_normalised_coupling_strengths(
     )
 
 
-    scattering_gamma = get_broadening(
-        gamma_frequencies=phonon_freq,
-        gamma=scattering_gamma,
-        broadening_type=broadening_type,
+    idx = -4
+
+    calc_const_broadening = get_broadening(
+        gamma_frequencies=phonon_freq[idx], 
+        gamma=scattering_gamma, 
+        broadening_type=broadening_type)
+
+
+    plot_single_mode_xyz(
+        ax = ax,
+        gamma_freq=phonon_freq[idx],
+        S_nn=S[idx][2],
+        volume=volume,
+        prop_gamma=None, #scattering_gamma,
+        const_gamma = calc_const_broadening,
+        eps_infty_nn=eps_infty[2][2],
     )
 
-    idx = -4
+
+    plot_single_mode_xyz_real(
+        ax = ax,
+        gamma_freq=phonon_freq[idx],
+        S_nn=S[idx][2],
+        volume=volume,
+        prop_gamma=None, #scattering_gamma,
+        const_gamma = calc_const_broadening,
+        eps_infty_nn=eps_infty[2][2],
+    )
+
+
+    root1, root2 = get_single_orhogonal_lorentz_root(
+        eps_infty_nn = eps_infty[2][2],
+        phonon_freq = phonon_freq[idx],
+        S_nn = S[idx][2],
+        V=volume*epsilon_0,
+        const_gamma=calc_const_broadening,
+    )
+
 
 
     import pdb; pdb.set_trace()
-    roots1, roots2 = get_lorentz_roots(
-        eps_infty=eps_infty,
-        phonon_freq=phonon_freq[idx],
-        S=np.array([S[idx]]),
-        V=volume,
-        scattering_gamma=scattering_gamma[idx],
+
+
+
+def single_xyz_epsilon_for_omega(
+    omega, gamma_freq, S_nn, volume, prop_gamma=None, const_gamma=None
+):
+    
+    if const_gamma is not None:
+        assert prop_gamma is None
+        denominator = gamma_freq**2 - omega**2 - omega * const_gamma * 1j  # THz^2
+
+    elif prop_gamma is not None:
+        assert const_gamma is None
+        denominator = gamma_freq**2 - omega**2 - gamma_freq**2 * omega * prop_gamma * 1j
+
+    denominator *= (2 * np.pi) ** 2
+
+    numerator = S_nn **2
+
+    print(f"g (gamma): {const_gamma:.4g}, volume (v): {volume:.4g}, S: {S_nn:.4g}, gamma_freq (f): {gamma_freq:.4g},")
+
+    #                                       C^2/kg     THz^2                   m^3      THz^2 -> Hz^2
+    epsilon_contribution = numerator / denominator / volume * 1e-24
+    epsilon_contribution = epsilon_contribution / epsilon_0  # relative epsilon
+    
+    return epsilon_contribution
+
+
+
+def single_xyz_epsilon_for_omega_real(
+    omega, gamma_freq, S_nn, volume, prop_gamma=None, const_gamma=None
+):
+    
+    if const_gamma is not None:
+        assert prop_gamma is None
+        denominator = omega**4 + (const_gamma**2 - 2 * gamma_freq ** 2) * omega**2 + gamma_freq**4
+
+
+    denominator *= (2 * np.pi) ** 2
+
+    numerator = S_nn **2 * (gamma_freq ** 2 - omega ** 2)
+
+    print(f"g (gamma): {const_gamma:.4g}, volume (v): {volume:.4g}, S: {S_nn:.4g}, gamma_freq (f): {gamma_freq:.4g},")
+
+    #                                       C^2/kg     THz^2                   m^3      THz^2 -> Hz^2
+    epsilon_contribution = numerator / denominator / volume * 1e-24
+    epsilon_contribution = epsilon_contribution / epsilon_0  # relative epsilon
+    
+    return epsilon_contribution
+
+
+
+
+def plot_single_mode_xyz_real(ax, gamma_freq, S_nn, volume, prop_gamma, const_gamma, eps_infty_nn):
+
+    omega_range_inv_cm = np.arange(600, 850, 0.2)
+    omega_range = omega_range_inv_cm / util.THz_to_inv_cm  # THz
+
+    eps_for_omega = np.array(
+        [
+            single_xyz_epsilon_for_omega_real(
+                omega=omega,
+                gamma_freq=gamma_freq,
+                S_nn=S_nn,
+                volume=volume,
+                prop_gamma=prop_gamma,
+                const_gamma=const_gamma,
+            )
+            for omega in omega_range
+        ]
     )
+    eps_for_omega += eps_infty_nn
+
+    ax.plot(omega_range_inv_cm, eps_for_omega.real, color='tab:green', ls=":")
+
+    ax.hlines(
+        y=0,
+        xmin=omega_range_inv_cm[0],
+        xmax=omega_range_inv_cm[-1],
+        color="k",
+        lw=0.5,
+        zorder=0,
+    )
+
+    ax.grid()
+    plt.savefig(
+        f"/raven/u/egg/mounted/diagonalized_eps/real.single_mode.with_metrics.ga2o3_gammas.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+
+
+
+
+
+def plot_single_mode_xyz(ax, gamma_freq, S_nn, volume, prop_gamma, const_gamma, eps_infty_nn):
+
+    omega_range_inv_cm = np.arange(600, 850, 0.2)
+    omega_range = omega_range_inv_cm / util.THz_to_inv_cm  # THz
+
+    eps_for_omega = np.array(
+        [
+            single_xyz_epsilon_for_omega(
+                omega=omega,
+                gamma_freq=gamma_freq,
+                S_nn=S_nn,
+                volume=volume,
+                prop_gamma=prop_gamma,
+                const_gamma=const_gamma,
+            )
+            for omega in omega_range
+        ]
+    )
+    eps_for_omega += eps_infty_nn
+
+    ax.plot(omega_range_inv_cm, eps_for_omega.real, color='tab:red', ls="--")
+
+    ax.hlines(
+        y=0,
+        xmin=omega_range_inv_cm[0],
+        xmax=omega_range_inv_cm[-1],
+        color="k",
+        lw=0.5,
+        zorder=0,
+    )
+
+    ax.grid()
+    plt.savefig(
+        f"/raven/u/egg/mounted/diagonalized_eps/single_mode.with_metrics.ga2o3_gammas.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+
 
 
 def plot_single_mode(mode_idx, gamma_frequencies, S, volume, gamma, broadening_type, eps_infty):
@@ -297,6 +471,8 @@ def plot_single_mode(mode_idx, gamma_frequencies, S, volume, gamma, broadening_t
 
     omega_range_inv_cm = np.arange(600, 850, 0.2)
     omega_range = omega_range_inv_cm / util.THz_to_inv_cm  # THz
+
+    import pdb; pdb.set_trace()
 
     eps_for_omega = np.array(
         [
@@ -336,6 +512,8 @@ def plot_single_mode(mode_idx, gamma_frequencies, S, volume, gamma, broadening_t
         dpi=300,
         bbox_inches="tight",
     )
+
+    return ax
 
 
 def get_broadening(gamma_frequencies, gamma, broadening_type):
