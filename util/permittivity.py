@@ -90,6 +90,7 @@ def get_schubert(omega_range, epsilon_inf=True):
 
     return data
 
+
 def get_schubert_individual_lorentz_oscillators(which, omega_range):
 
     assert which == "z"
@@ -98,10 +99,7 @@ def get_schubert_individual_lorentz_oscillators(which, omega_range):
     Au = mode_data.loc[mode_data["symmetry"] == "Au"]
 
     eps_zz = np.array(
-        [
-            get_rho(omega, Au["A"], Au["freq"], Au["scatter"])
-            for omega in omega_range
-        ]
+        [get_rho(omega, Au["A"], Au["freq"], Au["scatter"]) for omega in omega_range]
     )
 
     eps_zz += xyz_data["high_freq"]["zz"]
@@ -115,9 +113,9 @@ def find_first_above_threshold(numbers, threshold):
     index = bisect.bisect_right(numbers, threshold)
     return index if index < len(numbers) else -1
 
+
 def get_schubert_mode_eps_zero(which, eps_infty, alpha, A, freq, scattering_gamma):
     """alpha in radians"""
-
 
     assert which in ["xy", "z"]
 
@@ -137,53 +135,55 @@ def get_schubert_mode_eps_zero(which, eps_infty, alpha, A, freq, scattering_gamm
     QB = scattering_gamma**2 * eps_const - 2 * freq**2 * eps_const + A**2
     QC = eps_const * freq**4 - A**2 * freq**2
 
-    return solve_quadratic(A=QA, B=QB, C=QC) 
+    return solve_quadratic(A=QA, B=QB, C=QC)
+
 
 def get_lorentz_roots(eps_infty, phonon_freq, S, V, scattering_gamma):
-
-    
 
     assert np.all(S.imag == 0)
     S = S.real
 
     const = np.array([get_eps_infty_S_constant(eps_infty, s_row) for s_row in S])
-    
+
     A = const * V
-    B = const * V * (scattering_gamma ** 2 - phonon_freq ** 2) + 1
-    C = const * V * (phonon_freq ** 4 - phonon_freq **2)
+    B = const * V * (scattering_gamma**2 - phonon_freq**2) + 1
+    C = const * V * (phonon_freq**4 - phonon_freq**2)
 
     return solve_quadratic(A=A, B=B, C=C)
 
 
 def get_eps_infty_S_constant(eps_infty, S):
 
-    # make notation easier 
+    # make notation easier
     e = eps_infty
-    x=0
-    y=1
-    z=2
+    x = 0
+    y = 1
+    z = 2
 
-    top = e[x][x] * e[y][y] * e[z][z] \
-        + 2 * e[x][y] * e[y][z] * e[z][x] \
-        - e[x][x] * e[y][z] ** 2 \
-        - e[y][y] * e[z][x] ** 2 \
+    top = (
+        e[x][x] * e[y][y] * e[z][z]
+        + 2 * e[x][y] * e[y][z] * e[z][x]
+        - e[x][x] * e[y][z] ** 2
+        - e[y][y] * e[z][x] ** 2
         - e[z][z] * e[x][z] ** 2
+    )
 
-    bottom = e[x][x] * e[y][y] * S[z] ** 2 \
-           + e[y][y] * e[z][z] * S[x] ** 2 \
-           + e[z][z] * e[x][x] * S[y] ** 2 \
-           - e[x][y] ** 2 * S[z] ** 2 \
-           - e[y][z] ** 2 * S[x] ** 2 \
-           - e[z][x] ** 2 * S[y] ** 2 \
-           - 2 * e[x][x] * e[y][z] * S[y] * S[z] \
-           - 2 * e[y][y] * e[z][x] * S[z] * S[x] \
-           - 2 * e[z][z] * e[x][y] * S[x] * S[y] \
-           + 2 * e[x][y] * e[y][z] * S[x] * S[z] \
-           + 2 * e[y][z] * e[z][x] * S[y] * S[x] \
-           + 2 * e[z][x] * e[x][z] * S[x] * S[z] 
+    bottom = (
+        e[x][x] * e[y][y] * S[z] ** 2
+        + e[y][y] * e[z][z] * S[x] ** 2
+        + e[z][z] * e[x][x] * S[y] ** 2
+        - e[x][y] ** 2 * S[z] ** 2
+        - e[y][z] ** 2 * S[x] ** 2
+        - e[z][x] ** 2 * S[y] ** 2
+        - 2 * e[x][x] * e[y][z] * S[y] * S[z]
+        - 2 * e[y][y] * e[z][x] * S[z] * S[x]
+        - 2 * e[z][z] * e[x][y] * S[x] * S[y]
+        + 2 * e[x][y] * e[y][z] * S[x] * S[z]
+        + 2 * e[y][z] * e[z][x] * S[y] * S[x]
+        + 2 * e[z][x] * e[x][z] * S[x] * S[z]
+    )
 
     return -top / bottom
-
 
 
 def solve_quadratic(A, B, C):
@@ -193,10 +193,9 @@ def solve_quadratic(A, B, C):
     root1 = (+1 * B - np.sqrt(D)) / (2 * A)
     root2 = (+1 * B + np.sqrt(D)) / (2 * A)
 
-
     omega_0_1 = np.sqrt(np.abs(root1))
     omega_0_2 = np.sqrt(np.abs(root2))
-    
+
     return omega_0_1, omega_0_2
 
 
@@ -212,12 +211,28 @@ def get_schubert_normalised_coupling_strengths():
     Bu = mode_data.loc[mode_data["symmetry"] == "Bu"]
     Au = mode_data.loc[mode_data["symmetry"] == "Au"]
 
-    z_cross_1, z_cross_2 = get_schubert_mode_eps_zero("z", eps_infty, Au["angle"], Au["A"], Au["freq"], Au["scatter"])
-    xy_cross_1, xy_cross_2 = get_schubert_mode_eps_zero("xy", eps_infty, Bu["angle"], Bu["A"], Bu["freq"], Bu["scatter"])
+    z_cross_1, z_cross_2 = get_schubert_mode_eps_zero(
+        "z", eps_infty, Au["angle"], Au["A"], Au["freq"], Au["scatter"]
+    )
+    xy_cross_1, xy_cross_2 = get_schubert_mode_eps_zero(
+        "xy", eps_infty, Bu["angle"], Bu["A"], Bu["freq"], Bu["scatter"]
+    )
 
-    df_z = pd.DataFrame({"omega_sigma":z_cross_1, "omega_eps_0": z_cross_2, "axis":["z"]*len(z_cross_1)})
-    df_xy = pd.DataFrame({"omega_sigma":xy_cross_1, "omega_eps_0": xy_cross_2, "axis":["xy"]*len(xy_cross_1)})
-    
+    df_z = pd.DataFrame(
+        {
+            "omega_sigma": z_cross_1,
+            "omega_eps_0": z_cross_2,
+            "axis": ["z"] * len(z_cross_1),
+        }
+    )
+    df_xy = pd.DataFrame(
+        {
+            "omega_sigma": xy_cross_1,
+            "omega_eps_0": xy_cross_2,
+            "axis": ["xy"] * len(xy_cross_1),
+        }
+    )
+
     df_z["Schubert k"] = mode_data.iloc[df_z.index]["k"]
     df_xy["Schubert k"] = mode_data.iloc[df_xy.index]["k"]
 
@@ -226,9 +241,11 @@ def get_schubert_normalised_coupling_strengths():
     return compute_clean_coupling_strength_df(df)
 
 
-def compute_clean_coupling_strength_df(df): 
-    
-    df["eta"] = np.sqrt(df["omega_eps_0"]**2 - df["omega_sigma"]**2) / df["omega_sigma"]
+def compute_clean_coupling_strength_df(df):
+
+    df["eta"] = (
+        np.sqrt(df["omega_eps_0"] ** 2 - df["omega_sigma"] ** 2) / df["omega_sigma"]
+    )
 
     new_column_order = [
         "Schubert k",
@@ -239,39 +256,86 @@ def compute_clean_coupling_strength_df(df):
     ]
     df = df[new_column_order]
 
-    return df 
 
+def compute_dft_normalised_coupling_strengths(
+    eps_infty, phonon_freq, S, volume, scattering_gamma, broadening_type
+):
 
+    plot_single_mode(
+        mode_idx=-4,
+        gamma_frequencies=phonon_freq,
+        S=S,
+        volume=volume,
+        gamma=scattering_gamma,
+        broadening_type=broadening_type,
+        eps_infty=eps_infty
+    )
 
-def compute_dft_normalised_coupling_strengths(eps_infty,  phonon_freq, S, volume, scattering_gamma, broadening_type):
 
     scattering_gamma = get_broadening(
-            gamma_frequencies=phonon_freq,
-            gamma=scattering_gamma,
-            broadening_type=broadening_type)
-
-    roots1, roots2 = get_lorentz_roots(
-            eps_infty=eps_infty, 
-            phonon_freq=phonon_freq, 
-            S=S, 
-            V=volume, 
-            scattering_gamma=scattering_gamma
+        gamma_frequencies=phonon_freq,
+        gamma=scattering_gamma,
+        broadening_type=broadening_type,
     )
+
+    idx = -4
+
+
     import pdb; pdb.set_trace()
-        
+    roots1, roots2 = get_lorentz_roots(
+        eps_infty=eps_infty,
+        phonon_freq=phonon_freq[idx],
+        S=np.array([S[idx]]),
+        V=volume,
+        scattering_gamma=scattering_gamma[idx],
+    )
 
 
-
-def plot_single_mode(gamma_frequencies, S, volume, gamma, broadening_type):
+def plot_single_mode(mode_idx, gamma_frequencies, S, volume, gamma, broadening_type, eps_infty):
 
     numerator = get_numerator(S)
 
-    omega_range
+    omega_range_inv_cm = np.arange(600, 850, 0.2)
+    omega_range = omega_range_inv_cm / util.THz_to_inv_cm  # THz
 
-    epsilon_for_omega(
-        omega, gamma_frequencies, numerator, volume, gamma, broadening_type
+    eps_for_omega = np.array(
+        [
+            epsilon_for_omega(
+                omega=omega,
+                gamma_frequencies=np.array([gamma_frequencies[mode_idx]]),
+                numerator=np.array([numerator[mode_idx]]),
+                volume=volume,
+                gamma=gamma,
+                broadening_type=broadening_type,
+            )
+            for omega in omega_range
+        ]
+    )
+    eps_for_omega += eps_infty
+
+
+    plt.figure()
+    ax = plt.gca()
+    ax.plot(omega_range_inv_cm, eps_for_omega[:, 2, 2].real)
+
+    ax.hlines(
+        y=0,
+        xmin=omega_range_inv_cm[0],
+        xmax=omega_range_inv_cm[-1],
+        color="k",
+        lw=0.5,
+        zorder=0,
     )
 
+    ax.set_title(
+        f"mode {mode_idx} freq {gamma_frequencies[mode_idx] * util.THz_to_inv_cm}"
+    )
+    ax.grid()
+    plt.savefig(
+        f"/raven/u/egg/mounted/diagonalized_eps/mode{mode_idx}.with_metrics.ga2o3_gammas.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
 
 
 def get_broadening(gamma_frequencies, gamma, broadening_type):
@@ -288,9 +352,6 @@ def get_broadening(gamma_frequencies, gamma, broadening_type):
         raise RuntimeError(
             f"gamma is of type {type(gamma)} neither float nor numpy array."
         )
-
-
-
 
 
 def get_born_along_displacements(gamma_evecs, masses, born_charges):
@@ -374,6 +435,7 @@ def epsilon_for_omega(
         np.sum(np.divide(numerator, denominator), axis=0) / volume * 1e-24
     )
     epsilon_contribution = epsilon_contribution / epsilon_0  # relative epsilon
+    
     return epsilon_contribution
 
 
