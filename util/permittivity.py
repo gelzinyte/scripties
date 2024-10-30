@@ -144,16 +144,16 @@ def get_lorentz_roots(eps_infty, phonon_freq, S, V, scattering_gamma):
     assert np.all(S.imag == 0)
     S = S.real
 
-    const = np.array([get_eps_infty_S_constant(eps_infty, s_row) for s_row in S])
+    const = np.array([get_eps_infty_S_constant(eps_infty, s_row, V) for s_row in S])
 
-    A = const * V
-    B = const * V * (scattering_gamma**2 - 2* phonon_freq**2) + 1
-    C = const * V * phonon_freq**4 - phonon_freq**2
+    A = const 
+    B = const * (scattering_gamma**2 - 2* phonon_freq**2) + 1
+    C = const * phonon_freq**4 - phonon_freq**2
 
     return solve_quadratic(A=A, B=B, C=C)
 
 
-def get_eps_infty_S_constant(eps_infty, S):
+def get_eps_infty_S_constant(eps_infty, S, V):
 
     # make notation easier
     e = eps_infty
@@ -184,7 +184,11 @@ def get_eps_infty_S_constant(eps_infty, S):
         + 2 * e[z][x] * e[x][z] * S[x] * S[z]
     )
 
-    return -top / bottom
+
+    other_constants = epsilon_0 * (2 * np.pi)**2 * V * 1e24
+
+
+    return -top / bottom * other_constants
 
 
 def solve_quadratic(A, B, C):
@@ -262,16 +266,6 @@ def compute_dft_normalised_coupling_strengths(
     eps_infty, phonon_freq, S, volume, scattering_gamma, broadening_type
 ):
 
-    ax = plot_single_mode(
-        mode_idx=-4,
-        gamma_frequencies=phonon_freq,
-        S=S,
-        volume=volume,
-        gamma=scattering_gamma,
-        broadening_type=broadening_type,
-        eps_infty=eps_infty
-    )
-
 
     idx = -4
 
@@ -280,43 +274,43 @@ def compute_dft_normalised_coupling_strengths(
         gamma=scattering_gamma, 
         broadening_type=broadening_type)
 
-
-    plot_single_mode_xyz(
-        ax = ax,
-        gamma_freq=phonon_freq[idx],
-        S_nn=S[idx][2],
-        volume=volume,
-        prop_gamma=None, #scattering_gamma,
-        const_gamma = calc_const_broadening,
-        eps_infty_nn=eps_infty[2][2],
-    )
-
-
-    plot_single_mode_xyz_real(
-        ax = ax,
-        gamma_freq=phonon_freq[idx],
-        S_nn=S[idx][2],
-        volume=volume,
-        prop_gamma=None, #scattering_gamma,
-        const_gamma = calc_const_broadening,
-        eps_infty_nn=eps_infty[2][2],
-    )
-
-
     root1, root2 = get_single_orhogonal_lorentz_root(
         eps_infty_nn = eps_infty[2][2],
         phonon_freq = phonon_freq[idx],
         S_nn = S[idx][2],
-        V=volume*epsilon_0,
+        V=volume,
         const_gamma=calc_const_broadening,
     )
+    print(f"from single lorentz root1 {root1:.4g} root2 {root2:.4g}")
 
-
+    root1, root2 = get_lorentz_roots(
+        eps_infty=eps_infty,
+        phonon_freq=phonon_freq[idx],
+        S=np.array([S[idx]]),
+        V=volume,
+        scattering_gamma=calc_const_broadening,
+    )
 
     import pdb; pdb.set_trace()
+    print(f"from matrix lorentz root1 {root1:.4g} root2 {root2:.4g}")
 
 
 
+def get_single_orhogonal_lorentz_root(eps_infty_nn, phonon_freq, S_nn, V, const_gamma):
+
+    assert S_nn.imag == 0
+    S_nn = S_nn.real
+    
+    const = -1 * eps_infty_nn * epsilon_0 * (2*np.pi)**2 * V / (S_nn**2 * 1e-24)
+
+    A = const 
+    B = const * (const_gamma ** 2 - 2 * phonon_freq ** 2) + 1
+    C = const * phonon_freq ** 4 - phonon_freq ** 2
+
+    #print(f"const: {const:.3g}, V: {V:.3g}, const_gamma: {const_gamma:.3g}, phonon_freq: {phonon_freq:.3g}")
+    #print(f"A: {A:.3g}, B: {B:.3g}, C: {C:.3g}")
+    
+    return solve_quadratic(A=A, B=B, C=C)
 
 
 def get_broadening(gamma_frequencies, gamma, broadening_type):
