@@ -138,22 +138,6 @@ def get_schubert_mode_eps_zero(which, eps_infty, alpha, A, freq, scattering_gamm
     return solve_quadratic(A=QA, B=QB, C=QC)
 
 
-def get_single_orhogonal_lorentz_root(eps_infty_nn, phonon_freq, S_nn, V, const_gamma):
-
-    assert S_nn.imag == 0
-    S_nn = S_nn.real
-    
-    const = -1 * eps_infty_nn / (S_nn ** 2 )
-
-    A = const * V
-    B = const * V * (const_gamma ** 2 - 2 * phonon_freq ** 2) + 1
-    C = const * V * phonon_freq ** 4 - phonon_freq ** 2
-
-    print(f"const: {const:.3g}, V: {V:.3g}, const_gamma: {const_gamma:.3g}, phonon_freq: {phonon_freq:.3g}")
-    
-    return solve_quadratic(A=A, B=B, C=C)
-
-
 
 def get_lorentz_roots(eps_infty, phonon_freq, S, V, scattering_gamma):
 

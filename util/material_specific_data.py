@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 
-import util.geometry
+import util.ga2o3.geometry
 
 
 # rotate the axes so they match the paper                               
@@ -63,7 +63,7 @@ def get_conventional_ga2o3_gamma_eigenvectors(qpoint_dict):
     gamma_evecs = gamma_evecs.reshape((30, 10, 3))   # [30,10,3]
 
     # For each eigenvector, convert from primitive to conventional
-    prim_to_conv_perm_mx = util.geometry.array_perm_duplicate_mx()  # [20,10]
+    prim_to_conv_perm_mx = util.ga2o3.geometry.array_perm_duplicate_mx()  # [20,10]
     # for each eigenvector the transformation is
     # prim_to_conv_perm_mx @ eigenvector
     # So to rewrite for everyone
