@@ -71,7 +71,7 @@ def plot_atoms(at, ax_atoms):
 
     for idx in range(3):
         rr = np.array([randint(0, 90) for _ in range(3)])
-        ase_plot_atoms(at, ax_atoms[idx], radii=0.3, rotation=(f'{rr[0]}x,{rr[1]}y,0{rr[2]}z'))
+        ase_plot_atoms(at, ax_atoms[idx], radii=0.3, rotation=(f'{rr[0]}x,{rr[1]}y,{rr[2]}z'))
 
 
     # follow PlottingVariables from ase

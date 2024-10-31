@@ -1,4 +1,5 @@
 import math
+import warnings
 from copy import deepcopy
 import warnings
 import numpy as np
@@ -24,6 +25,16 @@ fcc_volume_density_param_N = 3.5e18  # cm^-3, page 15
 
 # radians
 mode_data["angle"] = np.radians(mode_data["angle"])
+
+eta_col_names_for_print = {
+            "omega_sigma_root1": r"$\omega_{\sigma, \textrm{root 1}}$",
+            "omega_eps_0_root2": r"$\omega_{\sigma, \varepsilon=0}$",
+            "eta": r"$\eta_\sigma$",
+            "phonon_freq": r"$\omega_{\sigma, \textrm{phonon}}$",
+            "S_mag": r"$\textrm{len}(\mathbf{S})$",
+            "const_gamma": r"$\gamma_\textrm{const}$",
+            "prop_gamma": r"$\gamma_\textrm{prop}$",
+        }
 
 
 def get_rho(omega, A, f_TO, broadening):
@@ -195,8 +206,10 @@ def solve_quadratic(A, B, C):
 
     D = B**2 - 4 * A * C
 
-    root1 = (+1 * B - np.sqrt(D)) / (2 * A)
-    root2 = (+1 * B + np.sqrt(D)) / (2 * A)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        root1 = (+1 * B - np.sqrt(D)) / (2 * A)
+        root2 = (+1 * B + np.sqrt(D)) / (2 * A)
 
     omega_0_1 = np.sqrt(np.abs(root1))
     omega_0_2 = np.sqrt(np.abs(root2))
@@ -225,92 +238,121 @@ def get_schubert_normalised_coupling_strengths():
 
     df_z = pd.DataFrame(
         {
-            "omega_sigma": z_cross_1,
-            "omega_eps_0": z_cross_2,
+            "omega_sigma_root1": z_cross_1,
+            "omega_eps_0_root2": z_cross_2,
             "axis": ["z"] * len(z_cross_1),
+            "phonon_freq": Au["freq"],
         }
     )
     df_xy = pd.DataFrame(
         {
-            "omega_sigma": xy_cross_1,
-            "omega_eps_0": xy_cross_2,
+            "omega_sigma_root1": xy_cross_1,
+            "omega_eps_0_root2": xy_cross_2,
             "axis": ["xy"] * len(xy_cross_1),
+            "phonon_freq": Bu["freq"]
         }
     )
 
     df_z["Schubert k"] = mode_data.iloc[df_z.index]["k"]
     df_xy["Schubert k"] = mode_data.iloc[df_xy.index]["k"]
-
     df = pd.concat([df_xy, df_z])
+    df =  compute_coupling_strengths(df)
 
-    return compute_clean_coupling_strength_df(df)
-
-
-def compute_clean_coupling_strength_df(df):
-
-    df["eta"] = (
-        np.sqrt(df["omega_eps_0"] ** 2 - df["omega_sigma"] ** 2) / df["omega_sigma"]
-    )
 
     new_column_order = [
         "Schubert k",
         "eta",
-        "omega_sigma",
-        "omega_eps_0",
+        "omega_sigma_root1",
+        "omega_eps_0_root2",
+        "phonon_freq",
         "axis",
     ]
     df = df[new_column_order]
 
+    return df
+
+
+def compute_coupling_strengths(df):
+
+    df["eta"] = get_normalized_coupling_strength(
+        omega_ph=df["omega_sigma_root1"], 
+        omega_zero=df["omega_eps_0_root2"]
+    )
+
+    return df
+
+
+def get_normalized_coupling_strength(omega_ph, omega_zero):
+    return np.sqrt(omega_zero**2 - omega_ph**2) / omega_ph
+
 
 def compute_dft_normalised_coupling_strengths(
-    eps_infty, phonon_freq, S, volume, scattering_gamma, broadening_type
+    eps_infty, phonon_freq, S, volume, scattering_gamma, broadening_type, format_for_print=True
 ):
-
-
-    idx = -4
-
     calc_const_broadening = get_broadening(
-        gamma_frequencies=phonon_freq[idx], 
+        gamma_frequencies=phonon_freq, 
         gamma=scattering_gamma, 
         broadening_type=broadening_type)
 
-    root1, root2 = get_single_orhogonal_lorentz_root(
-        eps_infty_nn = eps_infty[2][2],
-        phonon_freq = phonon_freq[idx],
-        S_nn = S[idx][2],
-        V=volume,
-        const_gamma=calc_const_broadening,
-    )
-    print(f"from single lorentz root1 {root1:.4g} root2 {root2:.4g}")
-
-    root1, root2 = get_lorentz_roots(
+    roots1, roots2 = get_lorentz_roots(
         eps_infty=eps_infty,
-        phonon_freq=phonon_freq[idx],
-        S=np.array([S[idx]]),
+        phonon_freq=phonon_freq,
+        S=S,
         V=volume,
         scattering_gamma=calc_const_broadening,
     )
 
-    import pdb; pdb.set_trace()
-    print(f"from matrix lorentz root1 {root1:.4g} root2 {root2:.4g}")
+    S_magnitudes = np.linalg.norm(S, axis=1)
+
+    df_dict = {
+        "omega_sigma_root1": roots1,
+        "omega_eps_0_root2": roots2,
+        "phonon_freq": phonon_freq,
+        "S_mag": S_magnitudes,
+        "const_gamma": calc_const_broadening,
+    }
+
+    if broadening_type == "proportional":
+        df_dict["prop_gamma"] = [scattering_gamma] * len(phonon_freq)
+
+    df = pd.DataFrame(df_dict)
+    df = compute_coupling_strengths(df)
 
 
+    df["direction"] = get_direction_of_response(S)
+    df["omega_sigma_root1"] = df["omega_sigma_root1"] * util.THz_to_inv_cm
+    df["omega_eps_0_root2"] = df["omega_eps_0_root2"] * util.THz_to_inv_cm
+    df["phonon_freq"] = df["phonon_freq"] * util.THz_to_inv_cm
 
-def get_single_orhogonal_lorentz_root(eps_infty_nn, phonon_freq, S_nn, V, const_gamma):
+    ref_new_column_order = [
+        "direction",
+        "eta",
+        "omega_sigma_root1",
+        "omega_eps_0_root2",
+        "phonon_freq",
+        "S_mag",
+        "const_gamma",
+        "prop_gamma",
+    ]
+    new_column_order = [col for col in ref_new_column_order if col in df.columns]
 
-    assert S_nn.imag == 0
-    S_nn = S_nn.real
-    
-    const = -1 * eps_infty_nn * epsilon_0 * (2*np.pi)**2 * V / (S_nn**2 * 1e-24)
+    df = df[new_column_order]
+    df = df.sort_values(by="phonon_freq", ignore_index=True)
 
-    A = const 
-    B = const * (const_gamma ** 2 - 2 * phonon_freq ** 2) + 1
-    C = const * phonon_freq ** 4 - phonon_freq ** 2
 
-    #print(f"const: {const:.3g}, V: {V:.3g}, const_gamma: {const_gamma:.3g}, phonon_freq: {phonon_freq:.3g}")
-    #print(f"A: {A:.3g}, B: {B:.3g}, C: {C:.3g}")
-    
-    return solve_quadratic(A=A, B=B, C=C)
+    if format_for_print:
+        df.fillna("", inplace=True)
+        df["omega_sigma_root1"] = df["omega_sigma_root1"].map(lambda x: "" if x=="" else f"{x:.1f}" )
+        df["omega_eps_0_root2"] = df["omega_eps_0_root2"].map(lambda x: "" if x=="" else f"{x:.1f}")
+        df["phonon_freq"] = df["phonon_freq"].map(lambda x: "" if x=="" else f"{x:.1f}")
+        df["S_mag"] = df["S_mag"].map(lambda x: f"{x:.1e}")
+        df["const_gamma"] = df["const_gamma"].map(lambda x: f"{x:.1e}")
+        df["prop_gamma"] = df["prop_gamma"].map(lambda x: f"{x:.1e}")
+        df["eta"] = df["eta"].map(lambda x: "" if x=="" else f"{x:.2f}" )
+
+        df = df.rename(columns=eta_col_names_for_print)
+
+    return df        
 
 
 def get_broadening(gamma_frequencies, gamma, broadening_type):
@@ -420,188 +462,27 @@ def get_numerator(S):
     return numerator
 
 
-def diagonalise_mx(mx):
-    evals, evecs = np.linalg.eig(mx)
-    D = np.eye(len(evals)) * evals
-    P = evecs
-    A = mx
-    assert np.allclose(D, np.linalg.inv(P) @ A @ P)
-    return np.linalg.inv(P) @ mx @ P
-
-
-def get_direction_of_response(ph_numerator, threshold=1e-18):
+def get_direction_of_response(S, threshold=1e-7):
 
     conv = "xyz"
 
+    S = S.copy()
+    assert np.all(S.imag==0)
+    S = S.real
+
     # check where we expect to see non-zero
-    zeroed_numerator = deepcopy(ph_numerator)
-    zeroed_numerator[np.abs(zeroed_numerator) < threshold] = 0
-    nz = np.nonzero(zeroed_numerator)
+    S[np.abs(S) < threshold] = 0
+    nz = np.nonzero(S)
 
-    if len(nz[0]) == 0:
-        # no response in permittivity
-        return None, None, None
-
-    if len(nz[0]) == len(nz[1]) and len(nz[0]) == 1:
-        id1 = nz[0][0]
-        id2 = nz[1][0]
-        response_in = conv[id1] + conv[id2]
-        return response_in, id1, id2
-
-    response = []
-    non_zero_ids = []
+        # partition in a more useful shape
+    dd = {}
     for id1, id2 in zip(nz[0], nz[1]):
-        vv1 = conv[id1]
-        vv2 = conv[id2]
-        if vv1 not in response:
-            response.append(vv1)
-        if vv2 not in response:
-            response.append(vv2)
-        if (id1, id2) not in non_zero_ids:
-            non_zero_ids.append((id1, id2))
-    response_in = "".join(response)
+        if id1 not in dd:
+            dd[id1] = ""
+        dd[id1] += conv[id2]
 
-    return response_in, None, None
+    out = [dd[idx] if idx in dd else np.nan for idx in range(S.shape[0])]
+
+    return  out 
 
 
-def get_normalised_coupling_strentghts(
-    omega_range,
-    gamma_frequencies,
-    numerator,
-    volume,
-    gamma,
-    broadening_type,
-    epsilon_inf,
-    threshold=1e-14,
-):
-
-    #     out_dir =  Path(
-    #     "/u/egg/mounted/high-throughput-permittivity/ionic_permittivities_from_jarvis_diagonalized_epsilon/tmp"
-    #         )
-    #     out_dir.mkdir(exist_ok=True)
-
-    etas_dict = {
-        "etas": [],
-        "omega_phonon": [],
-        "omega_eps0": [],
-        "response_direction": [],
-        "phonon_idx": [],
-    }
-
-    for phonon_idx, phonon_freq in enumerate(gamma_frequencies):
-
-        ph_numerator = numerator[phonon_idx]
-
-        assert np.all(ph_numerator.imag == 0)
-        ph_numerator = ph_numerator.real
-
-        if np.all(np.abs(ph_numerator) < threshold):
-            continue
-
-        orig_response_in, _, _ = get_direction_of_response(
-            ph_numerator, threshold=threshold
-        )
-
-        ph_numerator = np.array([diagonalise_mx(ph_numerator)])
-        _, id1, id2 = get_direction_of_response(ph_numerator[0])
-
-        one_ph_eps = np.array(
-            [
-                epsilon_for_omega(
-                    omega=omega,
-                    gamma_frequencies=np.array(
-                        [phonon_freq]
-                    ),  # compute for this phonon only
-                    numerator=ph_numerator,
-                    volume=volume,
-                    gamma=gamma,
-                    broadening_type=broadening_type,
-                )
-                for omega in omega_range
-            ]
-        )
-        one_ph_eps += epsilon_inf
-        #
-        #         out_fn = out_dir / f"phonon_{phonon_idx}.{phonon_freq*util.THz_to_inv_cm:.0f}.png"
-        #         axs = prepare_axes(omega_range)
-        #         omega_range_plt = omega_range * util.THz_to_inv_cm
-        #         axs["xx"]["real"].plot(omega_range_plt, one_ph_eps[:,0,0].real)
-        #         axs["xx"]["imag"].plot(omega_range_plt, one_ph_eps[:,0,0].imag)
-        #         axs["yy"]["real"].plot(omega_range_plt, one_ph_eps[:,1,1].real)
-        #         axs["yy"]["imag"].plot(omega_range_plt, one_ph_eps[:,1,1].imag)
-        #         axs["zz"]["real"].plot(omega_range_plt, one_ph_eps[:,2,2].real)
-        #         axs["zz"]["imag"].plot(omega_range_plt, one_ph_eps[:,2,2].imag)
-        #         axs["xy"]["real"].plot(omega_range_plt, one_ph_eps[:,0,1].real)
-        #         axs["xy"]["imag"].plot(omega_range_plt, one_ph_eps[:,0,1].imag)
-        #
-        #         plt.savefig(out_fn)
-        #
-
-        freq_eps_0 = get_zero_crossing(one_ph_eps, omega_range, id1, id2, threshold)
-
-        if freq_eps_0 == "na":
-            eta = "na"
-        else:
-            eta = get_normalized_coupling_strength(
-                omega_ph=phonon_freq, omega_zero=freq_eps_0
-            )
-            freq_eps_0 *= util.THz_to_inv_cm
-
-        etas_dict["etas"].append(eta)
-        etas_dict["omega_phonon"].append(phonon_freq * util.THz_to_inv_cm)
-        etas_dict["omega_eps0"].append(freq_eps_0)
-        etas_dict["response_direction"].append(orig_response_in)
-        etas_dict["phonon_idx"].append(phonon_idx)
-
-    return etas_dict_to_df(etas_dict)
-
-
-def etas_dict_to_df(etas_dict):
-
-    etas_df = pd.DataFrame(etas_dict, index=etas_dict["phonon_idx"])
-    etas_df = etas_df.sort_values(by="omega_phonon", ascending=True)
-    etas_df.reset_index(drop=True, inplace=True)
-
-    etas_df["etas"] = etas_df["etas"].map(
-        lambda x: f"{x:.2f}" if isinstance(x, float) else x
-    )
-    etas_df["omega_phonon"] = etas_df["omega_phonon"].map(lambda x: f"{x:.0f}")
-    etas_df["omega_eps0"] = etas_df["omega_eps0"].map(
-        lambda x: f"{x:.0f}" if isinstance(x, float) else x
-    )
-
-    column_renames = {
-        "etas": "$\eta_\sigma$",
-        "omega_phonon": "$\omega_\sigma$ [cm$^{-1}$]",
-        "omega_eps0": "$\omega_{\sigma, \\varepsilon=0}$ [cm$^{-1}$]",
-        "response_direction": "original component",
-        "phonon_idx": "phonon no.",
-    }
-    etas_df = etas_df.rename(columns=column_renames)
-
-    return etas_df
-
-
-def get_zero_crossing(one_ph_eps, omega_range, id1, id2, threshold):
-
-    assert len(one_ph_eps) == len(omega_range)
-
-    # mask small values to be zero
-    one_ph_eps[np.abs(one_ph_eps) < threshold] = 0
-
-    # where crossess zero?
-    zero_crossings = np.where(np.diff(np.sign(one_ph_eps[:, id1, id2].real)))[0]
-    if len(zero_crossings) == 0:
-        freq_eps_0 = "na"
-    elif len(zero_crossings) != 2:
-        raise RuntimeError(
-            f"got {len(zero_crossings)} zero crossings for phonon {phonon_idx} - extend omega range?"
-        )
-    else:
-        freq_eps_0 = omega_range[zero_crossings[1]]
-
-    return freq_eps_0
-
-
-def get_normalized_coupling_strength(omega_ph, omega_zero):
-    return np.sqrt(omega_zero**2 - omega_ph**2) / omega_ph

@@ -16,6 +16,7 @@ from pypdf import PdfWriter
 from util.permittivity import epsilon_for_omega
 from util.plot import prepare_axes_with_atoms as prepare_axes
 import util.plot
+import util.permittivity
 
 
 
@@ -62,16 +63,16 @@ def get_volume(vrun):
 
     return vol
 
+def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening):
 
-def get_data_to_plot(at, vasprun_fn, outcar_fn, broadening):
-    jarvis_id = at.info["jarvis_jid"]
+    jarvis_id = jarvis_at.info["jarvis_jid"]
 
     try:
         vrun = Vasprun(vasprun_fn)
         dfpt = Vasprun(vasprun_fn).dfpt_data
         out = Outcar(outcar_fn)
     except:
-        return None, None
+        return None, None, None, None
 
     vol = get_volume(vrun)  # Ang^3
     vol *= 1e-30  # m^3
@@ -105,9 +106,10 @@ def get_data_to_plot(at, vasprun_fn, outcar_fn, broadening):
     upper_lim = 1000 / util.THz_to_inv_cm
     max_omega = evals[0]
     assert np.max(evals) == max_omega
-    max_omega = max(max_omega, upper_lim)
+    if max_omega < upper_lim:
+        max_omega = upper_lim
     omega_range = np.arange(
-        100 / util.THz_to_inv_cm, max_omega * 1.1, 1 / util.THz_to_inv_cm
+        50 / util.THz_to_inv_cm, max_omega * 1.1, 1 / util.THz_to_inv_cm
     )  # THz
 
     # reporte "DFPT" epsilon is "epsilon" + "epsilon_ion". So
@@ -140,7 +142,21 @@ def get_data_to_plot(at, vasprun_fn, outcar_fn, broadening):
 
     eps_for_omega += epsilon_inf
 
-    return omega_range, eps_for_omega
+    # check which S's don't contribute much and only return those phonon frequencies to be plotted 
+    max_numerator = numerator.max(axis=1).max(axis=1)
+    selected_freqs = evals[max_numerator > 1e-13]
+
+    coupling_strength_df = util.permittivity.compute_dft_normalised_coupling_strengths(
+        eps_infty=epsilon_inf, 
+        phonon_freq = evals, 
+        S=S, 
+        volume=vol, 
+        scattering_gamma=broadening[0], 
+        broadening_type=broadening[1], 
+        format_for_print=False
+    )
+
+    return omega_range, eps_for_omega, selected_freqs, coupling_strength_df
 
 
 # from plotted position to epsilon position
