@@ -18,10 +18,10 @@ polariton_type_colors = {
 polariton_print_labels = {
     "dielectric": "dielectric",
     "elliptical": "ellptical",
-    "I_out-of-plane": r"I$_\bot$",
-    "I_in-plane": r"I$_\parallel$",
-    "II_out-of-plane": r"II$_\bot$",
-    "II_in-plane": r"II$_\parallel$",
+    "I_out-of-plane": r"Type I$_\bot$",
+    "I_in-plane": r"Type I$_\parallel$",
+    "II_out-of-plane": r"Type II$_\bot$",
+    "II_in-plane": r"Type II$_\parallel$",
 }
 
 
@@ -313,14 +313,15 @@ def setup_axes_compare(axs_specs, labels):
     return all_eps_axes, all_gamma_axes
 
 
-def setup_axes_analyse(axs_specs, make_gamma_ax=True):
+def setup_axes_analyse(axs_specs, make_gamma_ax=True, make_atoms_ax=True, side=2.5):
 
-    side = 2.5
     col_width = side * 3
     row_height = side
 
     num_cols = 1
-    num_rows = 1 + len(axs_specs)
+    num_rows =len(axs_specs)
+    if make_atoms_ax:
+        num_rows += 1
     if make_gamma_ax:
         num_rows += 1
     width = col_width * num_cols
@@ -330,16 +331,20 @@ def setup_axes_analyse(axs_specs, make_gamma_ax=True):
     gs = fig.add_gridspec(ncols=num_cols, nrows=num_rows, wspace=0, hspace=0)
 
     all_axes = {}
-    start_ax_idx = 1
+    start_ax_idx = 0
     
     if make_gamma_ax:
         ax_gamma = fig.add_subplot(gs[1, 0])
         start_ax_idx += 1
     else:
         ax_gamma = None
-
-    at_grid = gs[0, 0].subgridspec(1, 3, wspace=0, hspace=0)
-    axs_at = at_grid.subplots()
+    
+    if make_atoms_ax:
+        at_grid = gs[0, 0].subgridspec(1, 3, wspace=0, hspace=0)
+        axs_at = at_grid.subplots()
+        start_ax_idx += 1
+    else:
+        axs_at = None
 
     ref_share_y = None
 
@@ -359,14 +364,15 @@ def setup_axes_analyse(axs_specs, make_gamma_ax=True):
             ref_share_y = ax
 
         # Remove the spines
-    for ax in axs_at:
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        ax.spines['bottom'].set_visible(False)
-        # Remove the ticks
-        ax.xaxis.set_ticks([])
-        ax.yaxis.set_ticks([])
+    if make_atoms_ax:
+        for ax in axs_at:
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            # Remove the ticks
+            ax.xaxis.set_ticks([])
+            ax.yaxis.set_ticks([])
 
 
     return ax_gamma, all_axes, axs_at 
@@ -379,9 +385,9 @@ def post_eps_ax(ax, sp, min_max_y=None):
     t = conv[sp[0]] + conv[sp[1]]
 
     if sp[2] == "r":
-        ax.set_ylabel(f"{t} Real")
+        ax.set_ylabel(r"$\mathcal{R}(\varepsilon_{t})$")
     if sp[2] == "i":
-        ax.set_ylabel(f"{t} Imag")
+        ax.set_ylabel(r"$\mathcal{I}(\varepsilon_{t})$")
 
     if min_max_y is not None:
         axmin = min_max_y[t][sp[2]]["min"]
@@ -438,7 +444,7 @@ def smooth_epsilons(diag_raw_epsilons, orig_gamma_regions, tidy_gamma_regions):
 
 
 def color_polariton_regions(
-    axs_dict, tidy_eps_ranges, polariton_type_colors, omega_ranges,polariton_print_labels
+    axs_dict, tidy_eps_ranges, polariton_type_colors, omega_ranges,polariton_print_labels, legend_loc="best"
 ):
 
     pol_type_labels = [
@@ -448,7 +454,7 @@ def color_polariton_regions(
     pol_region_bounds = [get_label_regions(pol_types) for pol_types in pol_type_labels]
 
 
-    first_ax_label = None
+    first_ax_label = list(axs_dict.keys())[0]
     for idx, (ax_label, ax) in enumerate(axs_dict.items()):
         if ax_label[2] == "i" and first_ax_label is None: 
             first_ax_label = ax_label
@@ -463,7 +469,7 @@ def color_polariton_regions(
                     )
 
     handles = [mpatches.Patch(color=color, label=polariton_print_labels[label]) for label, color in polariton_type_colors.items()]
-    axs_dict[first_ax_label].legend(handles=handles) 
+    axs_dict[first_ax_label].legend(handles=handles,loc=legend_loc) 
 
     return get_polariton_region_widths(omega_ranges, pol_region_bounds)
 
@@ -487,11 +493,16 @@ def get_polariton_region_widths(omega_ranges, pol_region_bounds):
 
 
 
-def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_freqs):
+def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_freqs, plot_kwargs=None, vlines=True):
 
     min_oo = np.min([np.min(oo) for oo in omega_ranges])
     max_oo = np.max([np.max(oo) for oo in omega_ranges])
     xticks = np.arange(round(min_oo, -2)+100, max_oo, 100)
+
+    if plot_kwargs is None:
+        plot_kwargs = {"color":"k", "ls":"-"}
+    if "label" not in plot_kwargs:
+        plot_kwargs["label"] = None
 
     for ax_idx, (sp, ax) in enumerate(zip(axs_specs, axs_eps.values())):
 
@@ -504,17 +515,18 @@ def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_f
             ys = rifs[sp[2]](eps_range[:, sp[0], sp[1]])
             if sp[0] != sp[1] and sp[2] == "i":
                 ys = np.abs(ys)
-            ax.plot(omega_range, ys, color="k", label=None, ls="-")
+            ax.plot(omega_range, ys, **plot_kwargs)
 
         min_max_y = {t:{sp[2]:{"min":min_oo, "max":max_oo}}}
         post_eps_ax(ax, sp, min_max_y=min_max_y)
 
         rmin, rmax = ax.get_ylim()
-        ax.vlines(phonon_freqs, rmin, rmax, lw=0.5, color="k", label=r"$\omega_{TO}$")
+        if vlines:
+            ax.vlines(phonon_freqs, rmin, rmax, lw=0.5, color="k", label=r"$\omega_{TO}$")
         ax.set_ylim(rmin, rmax)
 
         if ax_idx == len(axs_specs) - 1:
-            xlabel = ax.set_xlabel(r"Frequency, cm$^{-1}$")
+            xlabel = ax.set_xlabel(r"\omega, cm$^{-1}$")
             xlabel.set_zorder(2)
 
             ax.tick_params(axis="both", which="both", zorder=2)

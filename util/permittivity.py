@@ -256,8 +256,7 @@ def get_schubert_normalised_coupling_strengths():
     df_z["Schubert k"] = mode_data.iloc[df_z.index]["k"]
     df_xy["Schubert k"] = mode_data.iloc[df_xy.index]["k"]
     df = pd.concat([df_xy, df_z])
-    df =  compute_coupling_strengths(df)
-
+    df = compute_coupling_strengths(df)
 
     new_column_order = [
         "Schubert k",
@@ -283,7 +282,7 @@ def compute_coupling_strengths(df):
 
 
 def get_normalized_coupling_strength(omega_ph, omega_zero):
-    return np.sqrt(omega_zero**2 - omega_ph**2) / omega_ph
+    return np.sqrt(omega_zero**2 - omega_ph**2) / omega_ph / 2
 
 
 def compute_dft_normalised_coupling_strengths(

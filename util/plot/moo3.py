@@ -73,7 +73,7 @@ def prepare_axes(omega_range,  figsize=(8,8)):
 
 
 
-def paper(axes_dd, omega_range, which="experimental", plot_kwargs=None):
+def paper(axes_dd, omega_range, which="experimental", plot_kwargs=None, real_only=False, show_LO=True):
     """
         Omega range in inv cm
     """
@@ -95,7 +95,10 @@ def paper(axes_dd, omega_range, which="experimental", plot_kwargs=None):
         title = cart + cart 
 
         ax_r = axes_dd[title]["real"]
-        ax_i = axes_dd[title]["imag"]
+        if real_only:
+            ax_i = None
+        else:
+            ax_i = axes_dd[title]["imag"]
 
 
         ys = paper_eps[cart]
@@ -113,12 +116,15 @@ def paper(axes_dd, omega_range, which="experimental", plot_kwargs=None):
         for idx, row in sub_df.iterrows():
             if match[cart]!=row["mode index"]:
                 continue
-            for ax in [ax_r, ax_i]:
-                ax.vlines(row["wLO"], 0, 1, transform=ax.get_xaxis_transform(), **vline_kwargs)
+            if show_LO:
+                for ax in [ax_r, ax_i]:
+                    if ax is not None:
+                        ax.vlines(row["wLO"], 0, 1, transform=ax.get_xaxis_transform(), **vline_kwargs)
 
 
         ax_r.plot(omega_range, ys.real, **plot_kwargs)
-        ax_i.plot(omega_range, ys.imag, **plot_kwargs)
+        if ax_i is not None:
+            ax_i.plot(omega_range, ys.imag, **plot_kwargs)
 
 
         #tt = ax_r.text(omega_range[0], ys[0].real+20, f'{ys[0].real:.1f}',)
