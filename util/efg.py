@@ -207,12 +207,20 @@ def plot(
         pearr, _ = pearsonr(ref_vals, pred_vals)
     except:
         pearr = 0.0
+
     mpe = get_mpe(ref_vals, pred_vals)
     if isinstance(pearr, np.ndarray):
         pearr = -10
+
     if mode=="all":
         parity_label = f"{dataset_label} RMSE: {rmse:.2g}; MAE: {mae:.2g}; \nR: {pearr:.2g}; rel. error: {mpe:.2g}%"
-    else: parity_label=""
+    elif mode == "r_mae":
+        parity_label = f"MAE: {mae:.2g}; \nR: {pearr:.2g}"
+        
+    else: 
+        parity_label=""
+
+
     ax_par.scatter(ref_vals, pred_vals, label=parity_label, **scatter_kwargs)
 
     min_val = np.min(np.concatenate([pred_vals, ref_vals]))
@@ -224,7 +232,7 @@ def plot(
         # update train and test dft
         ax_hist.hist(
             ref_vals,
-            histtype="step",
+            #histtype="step",
             bins=bins,
             label=f"DFT {dataset_label}",
             **hist_kwargs_ref,
@@ -242,9 +250,9 @@ def post_process_axis(ax_hist, ax_par):
     ax_par.plot([min_val, max_val], [min_val, max_val], color="k", ls="--")
 
     for ax in [ax_par, ax_hist]:
-        ax.grid(color="lightgrey", zorder=0)
-        ax.legend()
+        ax.grid(color="lightgrey", zorder=-1)
 
+    #ax_par.legend()
 
 def get_rmse(ref, pred):
     return np.sqrt(np.mean((ref - pred) ** 2))
