@@ -313,9 +313,9 @@ def setup_axes_compare(axs_specs, labels):
     return all_eps_axes, all_gamma_axes
 
 
-def setup_axes_analyse(axs_specs, make_gamma_ax=True, make_atoms_ax=True, side=2.5):
+def setup_axes_analyse(axs_specs, make_gamma_ax=True, make_atoms_ax=True, side=2.5, width_ratio=3):
 
-    col_width = side * 3
+    col_width = side * width_ratio
     row_height = side
 
     num_cols = 1
@@ -385,7 +385,20 @@ def post_eps_ax(ax, sp, min_max_y=None):
     t = conv[sp[0]] + conv[sp[1]]
 
     if sp[2] == "r":
-        ax.set_ylabel(r"$\mathcal{R}(\varepsilon_{t})$")
+        if t == "xx":
+            ax.set_ylabel(r"$\mathrm{Re}(\varepsilon_{xx})$")
+        elif t == "yy":
+            ax.set_ylabel(r"$\mathrm{Re}(\varepsilon_{yy})$")
+        elif t == "zz":
+            ax.set_ylabel(r"$\mathrm{Re}(\varepsilon_{zz})$")
+        elif t == "xy" or t== "yx":
+            ax.set_ylabel(r"$\mathrm{Re}(\varepsilon_{xy})$")
+        elif t == "yz" or t== "zy":
+            ax.set_ylabel(r"$\mathrm{Re}(\varepsilon_{yz})$")
+        elif t == "xz" or t== "zx":
+            ax.set_ylabel(r"$\mathrm{Re}(\varepsilon_{xz})$")
+
+
     if sp[2] == "i":
         ax.set_ylabel(r"$\mathcal{I}(\varepsilon_{t})$")
 
@@ -444,7 +457,7 @@ def smooth_epsilons(diag_raw_epsilons, orig_gamma_regions, tidy_gamma_regions):
 
 
 def color_polariton_regions(
-    axs_dict, tidy_eps_ranges, polariton_type_colors, omega_ranges,polariton_print_labels, legend_loc="best"
+    axs_dict, tidy_eps_ranges, polariton_type_colors, omega_ranges,polariton_print_labels, legend_loc="best", color=True
 ):
 
     pol_type_labels = [
@@ -453,23 +466,24 @@ def color_polariton_regions(
 
     pol_region_bounds = [get_label_regions(pol_types) for pol_types in pol_type_labels]
 
+    if color:
+        first_ax_label = list(axs_dict.keys())[0]
+        for idx, (ax_label, ax) in enumerate(axs_dict.items()):
+            if ax_label[2] == "i" and first_ax_label is None: 
+                first_ax_label = ax_label
+            for pol_type_dd, omega_range in zip(pol_region_bounds, omega_ranges):
+                for pol_type_label, stretch_bounds in pol_type_dd.items():
+                    for bp in stretch_bounds:
+                        ax.axvspan(
+                            omega_range[bp[0]],
+                            omega_range[bp[1]],
+                            color=polariton_type_colors[pol_type_label],
+                            zorder=-1,
+                        )
 
-    first_ax_label = list(axs_dict.keys())[0]
-    for idx, (ax_label, ax) in enumerate(axs_dict.items()):
-        if ax_label[2] == "i" and first_ax_label is None: 
-            first_ax_label = ax_label
-        for pol_type_dd, omega_range in zip(pol_region_bounds, omega_ranges):
-            for pol_type_label, stretch_bounds in pol_type_dd.items():
-                for bp in stretch_bounds:
-                    ax.axvspan(
-                        omega_range[bp[0]],
-                        omega_range[bp[1]],
-                        color=polariton_type_colors[pol_type_label],
-                        zorder=-1,
-                    )
-
-    handles = [mpatches.Patch(color=color, label=polariton_print_labels[label]) for label, color in polariton_type_colors.items()]
-    axs_dict[first_ax_label].legend(handles=handles,loc=legend_loc) 
+        if legend_loc is not None:
+            handles = [mpatches.Patch(color=color, label=polariton_print_labels[label]) for label, color in polariton_type_colors.items()]
+            axs_dict[first_ax_label].legend(handles=handles,loc=legend_loc) 
 
     return get_polariton_region_widths(omega_ranges, pol_region_bounds)
 
@@ -526,7 +540,7 @@ def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_f
         ax.set_ylim(rmin, rmax)
 
         if ax_idx == len(axs_specs) - 1:
-            xlabel = ax.set_xlabel(r"\omega, cm$^{-1}$")
+            xlabel = ax.set_xlabel(r"$\omega$, cm$^{-1}$")
             xlabel.set_zorder(2)
 
             ax.tick_params(axis="both", which="both", zorder=2)

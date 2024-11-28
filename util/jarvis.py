@@ -63,7 +63,7 @@ def get_volume(vrun):
 
     return vol
 
-def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening):
+def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_print=False, omega_step=1, individual=False):
 
     jarvis_id = jarvis_at.info["jarvis_jid"]
 
@@ -72,7 +72,7 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening):
         dfpt = Vasprun(vasprun_fn).dfpt_data
         out = Outcar(outcar_fn)
     except:
-        return None, None, None, None
+        return None, None, None, None, None
 
     vol = get_volume(vrun)  # Ang^3
     vol *= 1e-30  # m^3
@@ -109,7 +109,7 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening):
     if max_omega < upper_lim:
         max_omega = upper_lim
     omega_range = np.arange(
-        50 / util.THz_to_inv_cm, max_omega * 1.1, 1 / util.THz_to_inv_cm
+        50 / util.THz_to_inv_cm, max_omega * 1.1,  omega_step / util.THz_to_inv_cm
     )  # THz
 
     # reporte "DFPT" epsilon is "epsilon" + "epsilon_ion". So
@@ -142,6 +142,30 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening):
 
     eps_for_omega += epsilon_inf
 
+    if individual:
+
+        # create individual plots
+        individual_eps_for_omega = []
+        for num, freq in zip(numerator, evals):
+            single_eps_for_omega = np.array(
+                [
+                    epsilon_for_omega(
+                        omega=omega,
+                        gamma_frequencies=np.array([freq]),
+                        numerator=np.array([num]),
+                        volume=vol,
+                        gamma=broadening[0],
+                        broadening_type=broadening[1],
+                    )
+                    for omega in omega_range
+                ]
+            )
+            single_eps_for_omega += epsilon_inf
+            individual_eps_for_omega.append(single_eps_for_omega)
+        individual_eps_for_omega = np.array(individual_eps_for_omega)
+    else:
+        individual_eps_for_omega=None
+
     # check which S's don't contribute much and only return those phonon frequencies to be plotted 
     max_numerator = numerator.max(axis=1).max(axis=1)
     selected_freqs = evals[max_numerator > 1e-13]
@@ -153,10 +177,10 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening):
         volume=vol, 
         scattering_gamma=broadening[0], 
         broadening_type=broadening[1], 
-        format_for_print=False
+        format_for_print=format_for_print
     )
 
-    return omega_range, eps_for_omega, selected_freqs, coupling_strength_df
+    return omega_range, eps_for_omega, selected_freqs, coupling_strength_df, individual_eps_for_omega
 
 
 # from plotted position to epsilon position

@@ -340,13 +340,17 @@ def compute_dft_normalised_coupling_strengths(
 
 
     if format_for_print:
-        df.fillna("", inplace=True)
+        try:
+            df.fillna("", inplace=True)
+        except:
+            pass
         df["omega_sigma_root1"] = df["omega_sigma_root1"].map(lambda x: "" if x=="" else f"{x:.1f}" )
         df["omega_eps_0_root2"] = df["omega_eps_0_root2"].map(lambda x: "" if x=="" else f"{x:.1f}")
         df["phonon_freq"] = df["phonon_freq"].map(lambda x: "" if x=="" else f"{x:.1f}")
         df["S_mag"] = df["S_mag"].map(lambda x: f"{x:.1e}")
         df["const_gamma"] = df["const_gamma"].map(lambda x: f"{x:.1e}")
-        df["prop_gamma"] = df["prop_gamma"].map(lambda x: f"{x:.1e}")
+        if "prop_gamma" in df:
+            df["prop_gamma"] = df["prop_gamma"].map(lambda x: f"{x:.1e}")
         df["eta"] = df["eta"].map(lambda x: "" if x=="" else f"{x:.2f}" )
 
         df = df.rename(columns=eta_col_names_for_print)

@@ -73,7 +73,7 @@ def prepare_axes(omega_range,  figsize=(8,8)):
 
 
 
-def paper(axes_dd, omega_range, which="experimental", plot_kwargs=None, real_only=False, show_LO=True):
+def paper(axes_dd, omega_range, which="experimental", plot_kwargs=None, real_only=False, show_LO=True, plot_no=[]):
     """
         Omega range in inv cm
     """
@@ -90,7 +90,11 @@ def paper(axes_dd, omega_range, which="experimental", plot_kwargs=None, real_onl
         paper_eps = get_permittivity_dft(omega_range)
         df = dft_df
 
+    print("-"*30)
+    print(which)
     for cart in "xyz":
+        if cart in plot_no:
+            continue
 
         title = cart + cart 
 
@@ -111,15 +115,21 @@ def paper(axes_dd, omega_range, which="experimental", plot_kwargs=None, real_onl
             "x": 2,
             "y": 1, 
             "z":1}
-
         sub_df = df[df["main axis"] == cart] 
         for idx, row in sub_df.iterrows():
             if match[cart]!=row["mode index"]:
-                continue
+                pass
+                #continue
             if show_LO:
                 for ax in [ax_r, ax_i]:
                     if ax is not None:
                         ax.vlines(row["wLO"], 0, 1, transform=ax.get_xaxis_transform(), **vline_kwargs)
+                        #ax.vlines(row["wTO"], 0, 1, transform=ax.get_xaxis_transform(), **vline_kwargs)
+                        wLO = row['wLO']
+                        wTO = row['wTO']
+                        #import pdb; pdb.set_trace()
+                        eta = util.permittivity.get_normalized_coupling_strength(omega_ph=wTO, omega_zero=wLO)
+                        print(f"{cart} wLO: {wLO:.2f}, wTO: {wTO:.2f}, diff {wLO - wTO:.2f}, eta {eta:.2f}")
 
 
         ax_r.plot(omega_range, ys.real, **plot_kwargs)
