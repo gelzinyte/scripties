@@ -1,3 +1,4 @@
+import os
 from scipy.constants import speed_of_light
 from scipy.constants import physical_constants
 
@@ -42,4 +43,6 @@ def print_cross_mx(evecs):
 
     print(mm)
 
+
+mp_api_key = os.environ.get("MATERIALS_PROJECT_API_KEY")
 

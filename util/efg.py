@@ -82,15 +82,7 @@ def get_prop(efg, element):
     return data
 
 
-def get_props(efgs, element):
-
-    data = {
-        "Cqs": [],
-        "etas": [],
-        "omegas_q": [],
-    }
-
-    evals = np.array([spec._get_haeberlen_eigs(efg) for efg in efgs])
+def _get_tilde_Cqs_etas(evals):
 
     Vzzs = evals[:, z]
     Vzz_mean = np.mean(Vzzs)
@@ -100,11 +92,10 @@ def get_props(efgs, element):
     tilde_Cqs = (Vzzs - Vzz_mean) / Vzz_std
     tilde_etas = (evals[:, x] - evals[:, y]) / Vzz_mean
 
-    data["tilde_Cqs"] = tilde_Cqs
-    data["tilde_etas"] = tilde_etas
+    return tilde_Cqs, tilde_etas
 
-    # get angles
-    evecs = np.array([spec._get_haeberlen_eig_vecs(efg) for efg in efgs])
+
+def _get_thetas_phis(evecs):
     # take zz evector and its z component
     thetas = np.array([np.arccos(evec[z][z]) for evec in evecs])
     phis = np.array(
@@ -114,28 +105,10 @@ def get_props(efgs, element):
         ]
     )
 
-    data["thetas"] = thetas
-    data["phis"] = phis
-
-    quaternions = np.array([spec.calc_quaternion(evecs) for evecs in evecs])
-    data["quaternions"] = quaternions
-
-    for idx in range(3):
-        data[f"evals_{idx}"] = np.array([val[idx] for val in evals])
+    return thetas, phis
 
 
-    data["evecs"] = np.array(evecs)
-
-    for efg in efgs:
-
-        Cq, eta = spec.getcq(efg.flatten(), species=element)
-
-        data["Cqs"].append(Cq)
-        data["etas"].append(eta)
-
-    data["Cqs"] = np.array(data["Cqs"])
-    data["etas"] = np.array(data["etas"])
-
+def _get_omegas_q(data, element):
     omegas_q = np.array(
         [
             get_omega_q(Cq=Cq, eta=eta, spin=spins[element], theta=theta, phi=phi)
@@ -144,7 +117,49 @@ def get_props(efgs, element):
             )
         ]
     )
+    return omegas_q
 
+
+def get_props(efgs, element):
+
+    data = {
+        "Cqs": [],
+        "etas": [],
+        "omegas_q": [],
+    }
+
+    # uses np.linalg.eig, which returns eigenvectors as columns 
+    # eigenvectors[:,i] correspond to eigenvalues[i]
+    evecs = np.array([spec._get_haeberlen_eig_vecs(efg) for efg in efgs])
+    evals = np.array([spec._get_haeberlen_eigs(efg) for efg in efgs])
+
+    tilde_Cqs, tilde_etas = _get_tilde_Cqs_etas(evals)
+    data["tilde_Cqs"] = tilde_Cqs
+    data["tilde_etas"] = tilde_etas
+
+    # get angles
+    thetas, phis = _get_thetas_phis(evecs)
+    data["thetas"] = thetas
+    data["phis"] = phis
+
+    # evals should be as columns
+    quaternions = np.array([spec.calc_quaternion(evecs) for evecs in evecs])
+    data["quaternions"] = quaternions
+
+    for idx in range(3):
+        data[f"evals_{idx}"] = np.array([val[idx] for val in evals])
+    data["evecs"] = np.array(evecs)
+
+
+    for efg in efgs:
+        Cq, eta = spec.getcq(efg.flatten(), species=element)
+        data["Cqs"].append(Cq)
+        data["etas"].append(eta)
+
+    data["Cqs"] = np.array(data["Cqs"])
+    data["etas"] = np.array(data["etas"])
+
+    omegas_q = _get_omegas_q(data, element)
     data["omegas_q"] = omegas_q * 1e3  # kHz
 
     #data["efg"] = np.array([val[np.triu_indices(3)] for val in efgs])
@@ -156,7 +171,6 @@ def get_props(efgs, element):
 
     for i, j in [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]:
         data[f"efg_{i}{j}"] = np.array([efg[i][j] for efg in efgs])
-
     
 
     exp_length = len(efgs)
