@@ -202,6 +202,61 @@ def prep_axis(figsize):
 
     return ax_hist, ax_par
 
+def compute_error_quaternion_metrics(ref_vals, pred_vals):
+    dot_products = get_quaternion_dot_products(ref_vals, pred_vals)
+    mean = dot_products.mean()
+    percentile = np.percentile(dot_products, 10)
+
+    metrics = {
+        "mean" : float(mean),
+        "90_percentile":float(percentile),
+    }
+
+    return metrics
+
+
+def get_quaternion_dot_products(vals1, vals2):
+    return np.abs(np.dot(vals1, vals2.transpose()).diagonal())
+
+
+def plot_quaternions(ref_vals, pred_vals, ax, dataset_label, plot_kwargs):
+    
+    dot_products = get_quaternion_dot_products(ref_vals, pred_vals)
+
+    mean = dot_products.mean()
+    percentile = np.percentile(dot_products, 10)
+    
+    label = f"{dataset_label} mean(q.q): {mean:.2f}"
+    bins = np.linspace(0.0, 1, 20)
+
+    ax.hist(dot_products, bins=bins, label=label, **plot_kwargs)
+
+    ls = plot_kwargs.get("ls", "-")
+    color=plot_kwargs.get("color", "k")
+    ax.axvline(percentile, label=f"90% count at {percentile:.2f}", ls=ls, color=color)
+    
+    ax.set_yscale("log")
+    
+
+def compute_error_metrics(ref_vals, pred_vals):
+
+    rmse = get_rmse(ref_vals, pred_vals)
+    mae = get_mae(ref_vals, pred_vals)
+    try:
+        pearr, _ = pearsonr(ref_vals, pred_vals)
+    except:
+        pearr = 0.0
+
+    mpe = get_mpe(ref_vals, pred_vals)
+
+    error_metrics = {
+        "rmse":float(rmse),
+        "mae":float(mae),
+        "mpe":float(mpe),
+        "pearsonr":float(pearr),
+    }
+    return error_metrics
+
 
 def plot(
     ref_vals,
@@ -215,16 +270,13 @@ def plot(
     mode="all",
 ):
 
-    rmse = get_rmse(ref_vals, pred_vals)
-    mae = get_mae(ref_vals, pred_vals)
-    try:
-        pearr, _ = pearsonr(ref_vals, pred_vals)
-    except:
-        pearr = 0.0
+    error_metrics = compute_error_metrics(ref_vals=ref_vals, pred_vals=pred_vals)
 
-    mpe = get_mpe(ref_vals, pred_vals)
-    if isinstance(pearr, np.ndarray):
-        pearr = -10
+    rmse = error_metrics["rmse"] 
+    mae = error_metrics["mae"] 
+    pearr = error_metrics["pearsonr"]
+    mpe = error_metrics["mpe"]
+
 
     if mode=="all":
         parity_label = f"{dataset_label} RMSE: {rmse:.2g}; MAE: {mae:.2g}; \nR: {pearr:.2g}; rel. error: {mpe:.2g}%"
