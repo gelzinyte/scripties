@@ -120,6 +120,25 @@ def _get_omegas_q(data, element):
     return omegas_q
 
 
+def get_non_ordered_orientation_props(efgs):
+
+    quaternions = []
+    phis = []
+    thetas = []
+    for efg in efgs:
+        _, evecs = np.linalg.eig(efg)
+        quaternions +=  [spec.calc_quaternion(evecs)]
+        theta, phi = _get_thetas_phis(np.array([evecs]))         
+        phis.append(phi)
+        thetas.append(theta)
+
+    phis = np.array(phis)
+    thetas = np.array(thetas)
+    quaternions = np.array(quaternions)
+    
+    return quaternions, phis, thetas
+
+
 def get_props(efgs, element):
 
     data = {
@@ -141,10 +160,26 @@ def get_props(efgs, element):
     thetas, phis = _get_thetas_phis(evecs)
     data["thetas"] = thetas
     data["phis"] = phis
+    data["cos_phis"] = np.cos(phis)
+    data["cos_2_phis"] = np.cos(2*phis)
+    data["sin_phis"] = np.sin(phis)
+    data["cos_thetas"] = np.cos(thetas)
+    data["sin_thetas"] = np.sin(thetas)
+
+    quat, phis, thetas = get_non_ordered_orientation_props(efgs)
+    data["non_ord_quaternions"] = quat 
+    data["non_ord_phis"] = phis 
+    data["non_ord_thetas"] = thetas 
+
+
 
     # evals should be as columns
     quaternions = np.array([spec.calc_quaternion(evecs) for evecs in evecs])
     data["quaternions"] = quaternions
+
+    phis, theats = get_phis_thetas_from_quaternions(quaternions)
+    data["thetas_from_quats"] = thetas
+    data["phis_from_quats"] = phis
 
     for idx in range(3):
         data[f"evals_{idx}"] = np.array([val[idx] for val in evals])
@@ -244,6 +279,7 @@ def compute_error_metrics(ref_vals, pred_vals):
     mae = get_mae(ref_vals, pred_vals)
     try:
         pearr, _ = pearsonr(ref_vals, pred_vals)
+        pearr = float(pearr)
     except:
         pearr = 0.0
 
@@ -253,7 +289,7 @@ def compute_error_metrics(ref_vals, pred_vals):
         "rmse":float(rmse),
         "mae":float(mae),
         "mpe":float(mpe),
-        "pearsonr":float(pearr),
+        "pearsonr":pearr,
     }
     return error_metrics
 
