@@ -2,6 +2,7 @@ import numpy as np
 from pytest import approx
 
 from scipy.stats import pearsonr
+from scipy.spatial.transform import Rotation as R
 
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
@@ -126,9 +127,32 @@ def get_non_ordered_orientation_props(efgs):
     phis = []
     thetas = []
     for efg in efgs:
-        _, evecs = np.linalg.eig(efg)
-        quaternions +=  [spec.calc_quaternion(evecs)]
+        evals_my, evecs_my = np.linalg.eig(efg)
+        evecs_an = spec._get_haeberlen_eig_vecs(efg)
+        evals_an = spec._get_haeberlen_eigs(efg)
+        
+        D_my = np.eye(3) * evals_my
+        rot_my_efgs = np.linalg.inv(evecs_my) @ efg @ evecs_my
+        #assert np.allclose(D_my, )
+
+        D_an = np.eye(3) * evals_an
+        rot_an_efgs = np.linalg.inv(evecs_an) @ efg @ evecs_an
+        #assert np.allclose(D_an, )
+
+        #import pdb; pdb.set_trace()
+
+
+        quat_my =  spec.calc_quaternion(evecs_my)
+        quat_an =  spec.calc_quaternion(evecs_an)
+
+
         theta, phi = _get_thetas_phis(np.array([evecs]))         
+        
+        rot = R.from_quat(quaternions[-1])
+        euler = rot.as_euler("xyz", degrees=True)
+
+        import pdb; pdb.set_trace()
+
         phis.append(phi)
         thetas.append(theta)
 
@@ -137,6 +161,18 @@ def get_non_ordered_orientation_props(efgs):
     quaternions = np.array(quaternions)
     
     return quaternions, phis, thetas
+
+def get_phis_thetas_from_quaternions(quaternions):
+
+    thetas = []
+    phis = []
+
+    return
+    for quat in quaternions: 
+
+        rot = R.from_quat(quat) 
+
+
 
 
 def get_props(efgs, element):
@@ -166,10 +202,10 @@ def get_props(efgs, element):
     data["cos_thetas"] = np.cos(thetas)
     data["sin_thetas"] = np.sin(thetas)
 
-    quat, phis, thetas = get_non_ordered_orientation_props(efgs)
-    data["non_ord_quaternions"] = quat 
-    data["non_ord_phis"] = phis 
-    data["non_ord_thetas"] = thetas 
+    #quat, phis, thetas = get_non_ordered_orientation_props(efgs)
+    #data["non_ord_quaternions"] = quat 
+    #data["non_ord_phis"] = phis 
+    #data["non_ord_thetas"] = thetas 
 
 
 
@@ -177,9 +213,9 @@ def get_props(efgs, element):
     quaternions = np.array([spec.calc_quaternion(evecs) for evecs in evecs])
     data["quaternions"] = quaternions
 
-    phis, theats = get_phis_thetas_from_quaternions(quaternions)
-    data["thetas_from_quats"] = thetas
-    data["phis_from_quats"] = phis
+    #phis, theats = get_phis_thetas_from_quaternions(quaternions)
+    #data["thetas_from_quats"] = thetas
+    #data["phis_from_quats"] = phis
 
     for idx in range(3):
         data[f"evals_{idx}"] = np.array([val[idx] for val in evals])
@@ -367,4 +403,4 @@ def get_mae(ref, pred):
 def get_mpe(ref, pred):
     """mean percentage error"""
 
-    return np.mean(100 * np.abs(ref - pred) / ref)
+    return np.mean(100 * np.abs((ref - pred) / ref))
