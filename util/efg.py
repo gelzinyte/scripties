@@ -20,6 +20,63 @@ y = 1
 z = 2
 
 
+def tidy_sign_convention(t):
+    """ t - array with eigenvectors as columns """
+    for idx in range(3):
+        num_pve = np.sum([1 for x in t[:, idx] if x > 0])
+
+        if num_pve < 2:
+            t[:, idx] *= -1
+
+    return t
+
+
+def get_haeberlen_ordered_eigh_evecs_evals(t: np.ndarray):
+    """Return Haeberlen convention eigenvectors (TAKEN FROM MATADOR-DB)
+    EG: the same as Ange's code, but uses np.linalg.eigh instead of np.linalg.eig
+    for eigenvector sign/direction stability.  
+    Arguments:
+        t: numpy array containing a NxN square tensor.
+    Returns:
+        np.ndarray: eigenvectors of input matrix
+    """
+    eig_vals, eig_vecs = np.linalg.eigh(t)
+    eig_vals, eig_vecs = zip(
+        *sorted(zip(eig_vals, eig_vecs), key=lambda eig: abs(eig[0] - np.trace(t) / 3))
+    )
+
+    eig_vecs = tidy_sign_convention(np.array(eig_vecs))
+
+    return eig_vals, eig_vecs
+
+
+def get_haeberlen_eigh_evecs(t: np.ndarray):
+    """ for convenience return only evecs"""
+    _, eig_vecs = get_haeberlen_ordered_eigh_evecs_evals(t)
+    return eig_vecs
+
+def get_haeberlen_eigh_evals(t: np.ndarray):
+    """Return Haeberlen convention ordered eigenvalues of the passed tensor.
+    ``|s_zz - s_iso| >= |s_xx - s_iso| >= |s_yy - s_iso|``
+    Arguments:
+        t: numpy array containing a NxN square tensor.
+    Returns:
+        np.ndarray: N-d numpy array containing the ordered eigenvalues.
+    """
+    eig_vals, _ = get_haeberlen_ordered_eigh_evecs_evals(t)
+
+    new_eigvals = [eig_val for eig_val in eig_vals]
+
+    # This will make Vxx Vyy the opposite sign of Vzz
+    if eig_vals[0] > 0 or eig_vals[1] > 0:
+        new_eigvals[0] = -1*eig_vals[0]
+        new_eigvals[1] = -1*eig_vals[1]
+    if eig_vals[2] < 0:
+        new_eigvals[2] = eig_vals[2]*-1
+
+    return new_eigvals
+
+
 def extract_efgs(ats, efg_label):
 
     efgs_by_element = {}
@@ -65,8 +122,8 @@ def extract_ir_entries(efg):
 
 def get_prop(efg, element):
 
-    evals = spec._get_haeberlen_eigs(efg)
-    evecs = spec._get_haeberlen_eig_vecs(efg)
+    evals = get_haeberlen_eigh_evals(efg)
+    evecs = get_haeberlen_eigh_evecs(efg)
     theta = np.arccos(evec[2])
     phi = np.arctan(evec[1] / evec[0]) if np.abs(evec[0]) > 0 else 0
     Cq, eta = spec.getcq(efg.flatten(), species=element)
@@ -120,47 +177,48 @@ def _get_omegas_q(data, element):
     )
     return omegas_q
 
-
-def get_non_ordered_orientation_props(efgs):
-
-    quaternions = []
-    phis = []
-    thetas = []
-    for efg in efgs:
-        evals_my, evecs_my = np.linalg.eig(efg)
-        evecs_an = spec._get_haeberlen_eig_vecs(efg)
-        evals_an = spec._get_haeberlen_eigs(efg)
-        
-        D_my = np.eye(3) * evals_my
-        rot_my_efgs = np.linalg.inv(evecs_my) @ efg @ evecs_my
-        #assert np.allclose(D_my, )
-
-        D_an = np.eye(3) * evals_an
-        rot_an_efgs = np.linalg.inv(evecs_an) @ efg @ evecs_an
-        #assert np.allclose(D_an, )
-
-        #import pdb; pdb.set_trace()
-
-
-        quat_my =  spec.calc_quaternion(evecs_my)
-        quat_an =  spec.calc_quaternion(evecs_an)
-
-
-        theta, phi = _get_thetas_phis(np.array([evecs]))         
-        
-        rot = R.from_quat(quaternions[-1])
-        euler = rot.as_euler("xyz", degrees=True)
-
-        import pdb; pdb.set_trace()
-
-        phis.append(phi)
-        thetas.append(theta)
-
-    phis = np.array(phis)
-    thetas = np.array(thetas)
-    quaternions = np.array(quaternions)
-    
-    return quaternions, phis, thetas
+# 
+# def get_non_ordered_orientation_props(efgs):
+# 
+#     quaternions = []
+#     phis = []
+#     thetas = []
+#     for efg in efgs:
+#         evals_my, evecs_my = np.linalg.eig(efg)
+#         evecs_an = spec._get_haeberlen_eig_vecs(efg)
+#         evals_an = spec._get_haeberlen_eigs(efg)
+#         
+#         D_my = np.eye(3) * evals_my
+#         rot_my_efgs = np.linalg.inv(evecs_my) @ efg @ evecs_my
+#         #assert np.allclose(D_my, )
+# 
+#         D_an = np.eye(3) * evals_an
+#         rot_an_efgs = np.linalg.inv(evecs_an) @ efg @ evecs_an
+#         #assert np.allclose(D_an, )
+# 
+#         #import pdb; pdb.set_trace()
+# 
+# 
+#         quat_my =  spec.calc_quaternion(evecs_my)
+#         quat_an =  spec.calc_quaternion(evecs_an)
+# 
+# 
+#         theta, phi = _get_thetas_phis(np.array([evecs]))         
+#         
+#         rot = R.from_quat(quaternions[-1])
+#         euler = rot.as_euler("xyz", degrees=True)
+# 
+#         import pdb; pdb.set_trace()
+# 
+#         phis.append(phi)
+#         thetas.append(theta)
+# 
+#     phis = np.array(phis)
+#     thetas = np.array(thetas)
+#     quaternions = np.array(quaternions)
+#     
+#     return quaternions, phis, thetas
+ 
 
 def get_phis_thetas_from_quaternions(quaternions):
 
@@ -185,8 +243,8 @@ def get_props(efgs, element):
 
     # uses np.linalg.eig, which returns eigenvectors as columns 
     # eigenvectors[:,i] correspond to eigenvalues[i]
-    evecs = np.array([spec._get_haeberlen_eig_vecs(efg) for efg in efgs])
-    evals = np.array([spec._get_haeberlen_eigs(efg) for efg in efgs])
+    evecs = np.array([get_haeberlen_eigh_evecs(efg) for efg in efgs])
+    evals = np.array([get_haeberlen_eigh_evals(efg) for efg in efgs])
 
     tilde_Cqs, tilde_etas = _get_tilde_Cqs_etas(evals)
     data["tilde_Cqs"] = tilde_Cqs
@@ -210,7 +268,7 @@ def get_props(efgs, element):
 
 
     # evals should be as columns
-    quaternions = np.array([spec.calc_quaternion(evecs) for evecs in evecs])
+    quaternions = np.array([spec.calc_quaternion(sub_evecs) for sub_evecs in evecs])
     data["quaternions"] = quaternions
 
     #phis, theats = get_phis_thetas_from_quaternions(quaternions)
