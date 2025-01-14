@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 from pytest import approx
 
 from scipy.stats import pearsonr
@@ -8,6 +9,8 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 
 from ml_spectroscopy import calculators as spec
+from ml_spectroscopy.calculators import _get_quaternion_from_matrix as get_quat 
+
 
 spins = {
     "Li": 3 / 2,
@@ -233,7 +236,88 @@ def get_phis_thetas_from_quaternions(quaternions):
 
 
 
+def get_props_ref_pred(ref_efgs, pred_efgs, element):
+
+    data_ref = {}
+    data_pred = {}
+
+
+    ref = [get_quat(ref_efg) for ref_efg in ref_efgs]
+    ref_quats = np.array([rr[0] for rr in ref])
+    ref_evecs = np.array([rr[1] for rr in ref])
+    ref_evals = np.array([get_haeberlen_eigh_evals(efg) for efg in ref_efgs])
+
+    data_ref["quaternions"] =  np.array(ref_quats)
+
+    data_ref = get_single_dataset_properties(
+        efgs=ref_efgs, 
+        evals=ref_evals, 
+        evecs=ref_evecs, 
+        data=data_ref,
+        element=element,
+    )
+
+    pred = [get_quat(pred_efg, dft_quat=ref_quat) for pred_efg, ref_quat in zip(pred_efgs, ref_quats)]
+    pred_quats = np.array([pp[0] for pp in pred])
+    pred_evecs = np.array([pp[1] for pp in pred])
+    pred_evals = np.array([get_haeberlen_eigh_evals(efg) for efg in pred_efgs])
+
+
+    data_pred["quaternions"] =  np.array(pred_quats)
+
+    data_pred = get_single_dataset_properties(
+        efgs=pred_efgs, 
+        evals=pred_evals, 
+        evecs=pred_evecs, 
+        data=data_pred,
+        element=element,
+    )
+
+    return data_ref, data_pred
+
+def get_single_dataset_properties(efgs, evals, evecs, data, element):
+
+    tilde_Cqs, tilde_etas = _get_tilde_Cqs_etas(evals)
+    data["tilde_Cqs"] = tilde_Cqs
+    data["tilde_etas"] = tilde_etas
+
+    thetas, phis = _get_thetas_phis(evecs)
+    data["thetas"] = thetas
+    data["phis"] = phis
+
+    for idx in range(3):
+        data[f"evals_{idx}"] = np.array([val[idx] for val in evals])
+    data["evecs"] = np.array(evecs)
+
+    cq_eta_data = [spec.getcq(efg.flatten(), species=element) for efg in efgs]
+    data["Cqs"] = np.array([dd[0] for dd in cq_eta_data])
+    data["etas"] = np.array([dd[1] for dd in cq_eta_data])
+
+    omegas_q = _get_omegas_q(data, element)
+    data["omegas_q"] = omegas_q * 1e3  # kHz
+
+    #data["efg"] = np.array([val[np.triu_indices(3)] for val in efgs])
+    efg_L2_irs = np.array([extract_ir_entries(val)[2] for val in efgs])
+    for idx in range(5):
+        data[f"efg_L2_ir_{idx}"] = np.array([val[idx] for val in efg_L2_irs])
+
+    data["determinants"] = np.array([np.linalg.det(efg) for efg in efgs])
+
+    for i, j in [(0,0), (0,1), (0,2), (1,1), (1,2), (2,2)]:
+        data[f"efg_{i}{j}"] = np.array([efg[i][j] for efg in efgs])
+    
+
+    exp_length = len(efgs)
+    for key, vals in data.items():
+        assert len(vals) == exp_length
+
+
+    return data
+
+
 def get_props(efgs, element):
+
+    #warnings.warn("This function is outdated", UserWarning)
 
     data = {
         "Cqs": [],
@@ -266,10 +350,9 @@ def get_props(efgs, element):
     #data["non_ord_thetas"] = thetas 
 
 
-
     # evals should be as columns
-    quaternions = np.array([spec.calc_quaternion(sub_evecs) for sub_evecs in evecs])
-    data["quaternions"] = quaternions
+    #quaternions = np.array([spec.calc_quaternion(sub_evecs) for sub_evecs in evecs])
+    #data["quaternions"] = quaternions
 
     #phis, theats = get_phis_thetas_from_quaternions(quaternions)
     #data["thetas_from_quats"] = thetas
@@ -368,6 +451,8 @@ def plot_quaternions(ref_vals, pred_vals, ax, dataset_label, plot_kwargs):
     
 
 def compute_error_metrics(ref_vals, pred_vals):
+
+    assert len(ref_vals) == len(pred_vals)
 
     rmse = get_rmse(ref_vals, pred_vals)
     mae = get_mae(ref_vals, pred_vals)
