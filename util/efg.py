@@ -1,6 +1,8 @@
 import numpy as np
+from copy import deepcopy
 import warnings
 from pytest import approx
+from itertools import permutations
 
 from scipy.stats import pearsonr
 from scipy.spatial.transform import Rotation as R
@@ -48,7 +50,7 @@ def get_haeberlen_ordered_eigh_evecs_evals(t: np.ndarray):
         *sorted(zip(eig_vals, eig_vecs), key=lambda eig: abs(eig[0] - np.trace(t) / 3))
     )
 
-    eig_vecs = tidy_sign_convention(np.array(eig_vecs))
+    #eig_vecs = tidy_sign_convention(np.array(eig_vecs))
 
     return eig_vals, eig_vecs
 
@@ -156,15 +158,254 @@ def _get_tilde_Cqs_etas(evals):
     return tilde_Cqs, tilde_etas
 
 
-def _get_thetas_phis(evecs):
-    # take zz evector and its z component
-    thetas = np.array([np.arccos(evec[z][z]) for evec in evecs])
-    phis = np.array(
-        [
-            np.arctan(evec[z][y] / evec[z][x]) if np.abs(evec[z][x]) > 0 else 0
-            for evec in evecs
-        ]
-    )
+def get_theta(evec):
+    theta = np.arccos(evec[z][z])
+    return theta 
+
+
+def get_phi(evec):
+    ex = evec[z][x]
+    ey = evec[z][y]
+    ez = evec[z][z]
+
+    # via arctan2
+    phi = np.arctan2(ey, ex)
+    
+    if phi < -np.pi/2:
+        phi += np.pi
+    elif phi > np.pi/2:
+        phi -= np.pi
+
+    # via arctan
+#    if ex > 0:
+#        phi = np.arctan(ey/ex)
+#    elif ex < 0:
+#        if ey>0:
+#            phi = np.arctan(ey/ex) + np.pi
+#        elif  ey< 0:
+#            phi = np.arctan(ey/ex) - np.pi
+#    
+
+    # via arccos
+    #phi = np.sign(ey) * np.arccos(ex/np.sqrt(ex**2 + ey**2))
+
+    # original definition
+    #phi = np.arctan(evec[z][y] / evec[z][x]) if np.abs(evec[z][x]) > 0 else 0
+
+    return phi
+
+def get_abs_err(ref_angle, pred_angle):
+    return np.abs(ref_angle - pred_angle)
+
+def get_best_matched_theta_phi(evec, ref_theta=None, ref_phi=None):
+
+    phi = get_phi(evec)
+
+    orig_theta = get_theta(evec)
+    reverse_theta = np.pi - orig_theta
+
+    if ref_theta is not None:
+        orig_theta_error = get_abs_err(orig_theta, ref_theta)
+        reverse_teta_error = get_abs_err(reverse_theta, ref_theta)
+
+        if reverse_teta_error < orig_theta_error:
+            best_theta = reverse_theta 
+        else:
+            best_theta = orig_theta
+    else:
+        best_theta = orig_theta
+        
+    return best_theta, phi
+                
+
+
+def get_aligned_theta_phi(evec, ref_theta, ref_phi):
+    """Multiplies all combination of evecs by -1 
+    and chooses the the combination that minimizes the 
+    error between then calculated theta and/or phi and 
+    the reference theta and/or phi. If both ref_theta
+    and ref_phi are given, the error is minizmied separately. 
+    Otherwise, error is minimized for the given angle and
+    the other angle is calculated from the same evec alignment. 
+
+    Note for future: maybe some evec alignment give multiple equivalent 
+    errors for either of the angles, but only one alignment 
+    gives the best error for both?"""
+
+    assert ref_theta is not None or ref_phi is not None
+
+    mults = [1, -1]
+    best_evec = evec
+    ref_evec = deepcopy(evec)
+
+    best_theta = get_theta(ref_evec)
+    best_phi = get_phi(ref_evec)
+
+    lowest_error_theta = None
+    lowest_error_phi = None
+
+    if ref_theta is not None:
+        lowest_error_theta = get_abs_err(best_theta, ref_theta)
+    if ref_phi is not None:
+        lowest_error_phi = get_abs_err(best_phi, ref_phi)
+
+
+    for x_mult in mults:
+        for y_mult in mults:
+            for z_mult in mults:
+                current_evec = deepcopy(ref_evec)
+
+                current_evec[x] *= x_mult
+                current_evec[y] *= y_mult
+                current_evec[z] *= z_mult
+
+                theta = get_theta(current_evec)
+                phi = get_phi(current_evec)
+
+                if ref_theta is not None:
+                    current_error_theta = get_abs_err(theta, ref_theta)
+                    if current_error_theta < lowest_error_theta:
+                        lowest_error_theta = current_error_theta
+                        best_theta = theta
+
+                        if ref_phi is None:
+                            best_evec = current_evec
+
+                if ref_phi is not None:
+                    current_error_phi = get_abs_err(phi, ref_phi)
+                    if current_error_phi < lowest_error_phi:
+                        lowest_error_phi = current_error_phi
+                        best_phi = phi
+
+                        if ref_theta is None:
+                            best_evec = current_evec
+
+    if ref_theta is None:
+        best_theta = get_theta(best_evec)
+    if ref_phi is None:
+        best_phi = get_phi(best_evec)
+
+    return best_theta, best_phi
+
+def get_dot_product(evec, ref_evec):
+    dot_products = np.array([[np.dot(evec[i], ref_evec[j]) for i in [x, y, z]] for j in [x, y, z]])
+    return dot_products
+
+
+def match_permutation(evec, ref_evec):
+
+    dot_products = get_dot_product(evec, ref_evec)
+        
+    best_trace = np.trace(np.abs(dot_products))
+    best_evec = evec
+
+    if  best_trace > 2.9:
+        return evec
+
+    for perm in permutations(range(3)):
+        import pdb; pdb.set_trace()
+        permuted_evec = deepcopy(evec)
+        permuted_evec = permuted_evec[:, perm]
+
+        dot_products = get_dot_product(permuted_evec, ref_evec)
+        trace = np.trace(np.abs(dot_products))
+
+        if trace > best_trace:
+            import pdb; pdb.set_trace()
+            best_trace = trace
+            best_evec = permuted_evec
+
+
+    return best_evec
+
+def match_directions(evec, ref_evec):
+
+    dot_products = get_dot_product(evec, ref_evec)
+    
+    for i in [x, y, z]:
+        if not np.abs(dot_products[i][i]) > 0.9:
+            import pdb; pdb.set_trace()
+        if dot_products[i][i] < 0:
+            evec[i] *= -1
+
+    return evec
+
+
+def get_theta_phi_from_matched_evec(evec, ref_evec):
+
+    evec = match_permutation(evec, ref_evec)
+    evec = match_directions(evec, ref_evec)
+
+    best_phi = get_phi(evec)
+    best_theta = get_theta(evec)
+
+    if ref_evec is not None:
+
+        ref_theta = get_theta(ref_evec)
+        ref_phi = get_phi(ref_evec)
+        
+
+        flipped_evec = deepcopy(evec)
+        flipped_evec[z] *= -1
+        flipped_theta = get_theta(flipped_evec)
+        #flipped_theta = np.pi - best_theta
+
+        flipped_phi = get_phi(flipped_evec)
+        
+        # get best theta
+        orig_theta_error = get_abs_err(best_theta, ref_theta)
+        reverse_teta_error = get_abs_err(flipped_theta, ref_theta)
+        if reverse_teta_error < orig_theta_error:
+            best_theta = flipped_theta 
+
+        
+        orig_phi_error = get_abs_err(best_phi, ref_phi)
+        reverse_phi_error = get_abs_err(flipped_phi, ref_phi)
+        if reverse_phi_error < orig_phi_error:
+            best_phi = flipped_phi 
+        
+
+    return best_theta, best_phi 
+
+                
+def get_thetas_phis_match_evecs(evecs, ref_evecs=None):
+
+    if ref_evecs is None:
+        thetas = np.array([get_theta(evec) for evec in evecs])
+        phis = np.array([get_phi(evec)for evec in evecs])
+
+    else:
+        both = [get_theta_phi_from_matched_evec(evec, ref_evec=ref_evec) for evec, ref_evec in zip(evecs, ref_evecs)]
+        thetas = np.array([theta for theta, _ in both])
+        phis = np.array([phi for _, phi in both])
+    return thetas, phis
+    
+
+
+def _get_thetas_phis(evecs, ref_phis=None, ref_thetas=None, flip_theta_only=False):
+
+    if not flip_theta_only:
+        angle_func = get_aligned_theta_phi
+    else:
+        print("hi!")
+        angle_func = get_best_matched_theta_phi
+
+    if ref_phis is None and ref_thetas is None:
+        # take zz evector and its z component
+        thetas = np.array([get_theta(evec) for evec in evecs])
+        phis = np.array([get_phi(evec)for evec in evecs])
+
+    else:
+        
+        if ref_phis is None:
+            ref_phis = [None for _ in evecs]
+        if ref_thetas is None:
+            ref_thetas = [None for _ in evecs]
+
+        iterator = zip(evecs, ref_thetas, ref_phis)
+        both = [angle_func(evec, ref_theta=ref_theta, ref_phi=ref_phi) for evec, ref_theta, ref_phi in iterator] 
+        thetas = np.array([theta for theta, _ in both])
+        phis = np.array([phi for _, phi in both])
 
     return thetas, phis
 
@@ -344,19 +585,6 @@ def get_props(efgs, element):
     data["cos_thetas"] = np.cos(thetas)
     data["sin_thetas"] = np.sin(thetas)
 
-    #quat, phis, thetas = get_non_ordered_orientation_props(efgs)
-    #data["non_ord_quaternions"] = quat 
-    #data["non_ord_phis"] = phis 
-    #data["non_ord_thetas"] = thetas 
-
-
-    # evals should be as columns
-    #quaternions = np.array([spec.calc_quaternion(sub_evecs) for sub_evecs in evecs])
-    #data["quaternions"] = quaternions
-
-    #phis, theats = get_phis_thetas_from_quaternions(quaternions)
-    #data["thetas_from_quats"] = thetas
-    #data["phis_from_quats"] = phis
 
     for idx in range(3):
         data[f"evals_{idx}"] = np.array([val[idx] for val in evals])
