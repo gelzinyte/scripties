@@ -25,7 +25,7 @@ y = 1
 z = 2
 
 
-def tidy_sign_convention(t):
+def bad_tidy_sign_convention(t):
     """ t - array with eigenvectors as columns """
     for idx in range(3):
         num_pve = np.sum([1 for x in t[:, idx] if x > 0])
@@ -125,7 +125,7 @@ def extract_ir_entries(efg):
     return scalar, np.array([v1, v2, v3]), np.array([t1, t2, t3, t4, t5])
 
 
-def get_prop(efg, element):
+def bad_get_prop(efg, element):
 
     evals = get_haeberlen_eigh_evals(efg)
     evecs = get_haeberlen_eigh_evecs(efg)
@@ -163,41 +163,21 @@ def get_theta(evec):
     return theta 
 
 
+
 def get_phi(evec):
-    ex = evec[z][x]
-    ey = evec[z][y]
+    ex = evec[x][z]
+    ey = evec[y][z]
     ez = evec[z][z]
 
     # via arctan2
     phi = np.arctan2(ey, ex)
     
-    if phi < -np.pi/2:
-        phi += np.pi
-    elif phi > np.pi/2:
-        phi -= np.pi
-
-    # via arctan
-#    if ex > 0:
-#        phi = np.arctan(ey/ex)
-#    elif ex < 0:
-#        if ey>0:
-#            phi = np.arctan(ey/ex) + np.pi
-#        elif  ey< 0:
-#            phi = np.arctan(ey/ex) - np.pi
-#    
-
-    # via arccos
-    #phi = np.sign(ey) * np.arccos(ex/np.sqrt(ex**2 + ey**2))
-
-    # original definition
-    #phi = np.arctan(evec[z][y] / evec[z][x]) if np.abs(evec[z][x]) > 0 else 0
-
     return phi
 
 def get_abs_err(ref_angle, pred_angle):
     return np.abs(ref_angle - pred_angle)
 
-def get_best_matched_theta_phi(evec, ref_theta=None, ref_phi=None):
+def bad_get_best_matched_theta_phi(evec, ref_theta=None, ref_phi=None):
 
     phi = get_phi(evec)
 
@@ -219,7 +199,7 @@ def get_best_matched_theta_phi(evec, ref_theta=None, ref_phi=None):
                 
 
 
-def get_aligned_theta_phi(evec, ref_theta, ref_phi):
+def bad_get_aligned_theta_phi(evec, ref_theta, ref_phi):
     """Multiplies all combination of evecs by -1 
     and chooses the the combination that minimizes the 
     error between then calculated theta and/or phi and 
@@ -288,7 +268,7 @@ def get_aligned_theta_phi(evec, ref_theta, ref_phi):
     return best_theta, best_phi
 
 def get_dot_product(evec, ref_evec):
-    dot_products = np.array([[np.dot(evec[i], ref_evec[j]) for i in [x, y, z]] for j in [x, y, z]])
+    dot_products = np.array([[np.dot(evec[:,i], ref_evec[:,j]) for i in [x, y, z]] for j in [x, y, z]])
     return dot_products
 
 
@@ -303,7 +283,6 @@ def match_permutation(evec, ref_evec):
         return evec
 
     for perm in permutations(range(3)):
-        import pdb; pdb.set_trace()
         permuted_evec = deepcopy(evec)
         permuted_evec = permuted_evec[:, perm]
 
@@ -311,7 +290,6 @@ def match_permutation(evec, ref_evec):
         trace = np.trace(np.abs(dot_products))
 
         if trace > best_trace:
-            import pdb; pdb.set_trace()
             best_trace = trace
             best_evec = permuted_evec
 
@@ -320,18 +298,21 @@ def match_permutation(evec, ref_evec):
 
 def match_directions(evec, ref_evec):
 
+
     dot_products = get_dot_product(evec, ref_evec)
     
     for i in [x, y, z]:
-        if not np.abs(dot_products[i][i]) > 0.9:
-            import pdb; pdb.set_trace()
         if dot_products[i][i] < 0:
-            evec[i] *= -1
+            evec[:, i] *= -1
 
     return evec
 
+def match_permutation_direction(evec, ref_evec):
+    evec = match_permutation(evec, ref_evec)
+    evec = match_directions(evec, ref_evec)
+    return evec
 
-def get_theta_phi_from_matched_evec(evec, ref_evec):
+def bad_get_theta_phi_from_matched_evec(evec, ref_evec):
 
     evec = match_permutation(evec, ref_evec)
     evec = match_directions(evec, ref_evec)
@@ -368,7 +349,7 @@ def get_theta_phi_from_matched_evec(evec, ref_evec):
     return best_theta, best_phi 
 
                 
-def get_thetas_phis_match_evecs(evecs, ref_evecs=None):
+def bad_get_thetas_phis_match_evecs(evecs, ref_evecs=None):
 
     if ref_evecs is None:
         thetas = np.array([get_theta(evec) for evec in evecs])
@@ -384,28 +365,32 @@ def get_thetas_phis_match_evecs(evecs, ref_evecs=None):
 
 def _get_thetas_phis(evecs, ref_phis=None, ref_thetas=None, flip_theta_only=False):
 
-    if not flip_theta_only:
-        angle_func = get_aligned_theta_phi
-    else:
-        print("hi!")
-        angle_func = get_best_matched_theta_phi
+#     if not flip_theta_only:
+#         angle_func = get_aligned_theta_phi
+#     else:
+#         print("hi!")
+#         angle_func = get_best_matched_theta_phi
+# 
+#     if ref_phis is None and ref_thetas is None:
+#         # take zz evector and its z component
 
-    if ref_phis is None and ref_thetas is None:
-        # take zz evector and its z component
-        thetas = np.array([get_theta(evec) for evec in evecs])
-        phis = np.array([get_phi(evec)for evec in evecs])
+     
+# 
+#     else:
+#         
+#         if ref_phis is None:
+#             ref_phis = [None for _ in evecs]
+#         if ref_thetas is None:
+#             ref_thetas = [None for _ in evecs]
+# 
+#         iterator = zip(evecs, ref_thetas, ref_phis)
+#         both = [angle_func(evec, ref_theta=ref_theta, ref_phi=ref_phi) for evec, ref_theta, ref_phi in iterator] 
+#         thetas = np.array([theta for theta, _ in both])
+#         phis = np.array([phi for _, phi in both])
 
-    else:
-        
-        if ref_phis is None:
-            ref_phis = [None for _ in evecs]
-        if ref_thetas is None:
-            ref_thetas = [None for _ in evecs]
+    thetas = np.array([get_theta(evec) for evec in evecs])
+    phis = np.array([get_phi(evec)for evec in evecs])
 
-        iterator = zip(evecs, ref_thetas, ref_phis)
-        both = [angle_func(evec, ref_theta=ref_theta, ref_phi=ref_phi) for evec, ref_theta, ref_phi in iterator] 
-        thetas = np.array([theta for theta, _ in both])
-        phis = np.array([phi for _, phi in both])
 
     return thetas, phis
 
@@ -421,50 +406,8 @@ def _get_omegas_q(data, element):
     )
     return omegas_q
 
-# 
-# def get_non_ordered_orientation_props(efgs):
-# 
-#     quaternions = []
-#     phis = []
-#     thetas = []
-#     for efg in efgs:
-#         evals_my, evecs_my = np.linalg.eig(efg)
-#         evecs_an = spec._get_haeberlen_eig_vecs(efg)
-#         evals_an = spec._get_haeberlen_eigs(efg)
-#         
-#         D_my = np.eye(3) * evals_my
-#         rot_my_efgs = np.linalg.inv(evecs_my) @ efg @ evecs_my
-#         #assert np.allclose(D_my, )
-# 
-#         D_an = np.eye(3) * evals_an
-#         rot_an_efgs = np.linalg.inv(evecs_an) @ efg @ evecs_an
-#         #assert np.allclose(D_an, )
-# 
-#         #import pdb; pdb.set_trace()
-# 
-# 
-#         quat_my =  spec.calc_quaternion(evecs_my)
-#         quat_an =  spec.calc_quaternion(evecs_an)
-# 
-# 
-#         theta, phi = _get_thetas_phis(np.array([evecs]))         
-#         
-#         rot = R.from_quat(quaternions[-1])
-#         euler = rot.as_euler("xyz", degrees=True)
-# 
-#         import pdb; pdb.set_trace()
-# 
-#         phis.append(phi)
-#         thetas.append(theta)
-# 
-#     phis = np.array(phis)
-#     thetas = np.array(thetas)
-#     quaternions = np.array(quaternions)
-#     
-#     return quaternions, phis, thetas
- 
 
-def get_phis_thetas_from_quaternions(quaternions):
+def bad_get_phis_thetas_from_quaternions(quaternions):
 
     thetas = []
     phis = []
@@ -477,7 +420,7 @@ def get_phis_thetas_from_quaternions(quaternions):
 
 
 
-def get_props_ref_pred(ref_efgs, pred_efgs, element):
+def bad_get_props_ref_pred(ref_efgs, pred_efgs, element):
 
     data_ref = {}
     data_pred = {}
@@ -516,7 +459,7 @@ def get_props_ref_pred(ref_efgs, pred_efgs, element):
 
     return data_ref, data_pred
 
-def get_single_dataset_properties(efgs, evals, evecs, data, element):
+def bad_get_single_dataset_properties(efgs, evals, evecs, data, element):
 
     tilde_Cqs, tilde_etas = _get_tilde_Cqs_etas(evals)
     data["tilde_Cqs"] = tilde_Cqs
@@ -631,7 +574,7 @@ def get_omega_q(Cq, eta, spin, theta, phi):
     return omega_q
 
 
-def prep_axis(figsize):
+def bad_prep_axis(figsize):
 
     plt.figure(figsize=figsize)
 
@@ -666,7 +609,8 @@ def plot_quaternions(ref_vals, pred_vals, ax, dataset_label, plot_kwargs):
     mean = dot_products.mean()
     percentile = np.percentile(dot_products, 10)
     
-    label = f"{dataset_label} mean(q.q): {mean:.2f}"
+    #label = f"{dataset_label} mean(q.q): {mean:.2f}"
+    label=None
     bins = np.linspace(0.0, 1, 20)
 
     ax.hist(dot_products, bins=bins, label=label, **plot_kwargs)
@@ -724,8 +668,7 @@ def plot(
     if mode=="all":
         parity_label = f"{dataset_label} RMSE: {rmse:.2g}; MAE: {mae:.2g}; \nR: {pearr:.2g}; rel. error: {mpe:.2g}%"
     elif mode == "r_mae":
-        parity_label = f"MAE: {mae:.2g}; \nR: {pearr:.2g}"
-        
+        parity_label = f"{dataset_label} MAE: {mae:.2g} R: {pearr:.2g}"
     else: 
         parity_label=""
 
