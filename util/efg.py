@@ -14,6 +14,18 @@ from ml_spectroscopy import calculators as spec
 from ml_spectroscopy.calculators import _get_quaternion_from_matrix as get_quat 
 
 
+property_latex_labels = {
+    "tilde_Cqs": r"$\tilde C_Q$",
+    "tilde_etas": r"$\tilde \eta$",
+    "thetas": r"$\theta$",
+    "cos_thetas": r"$\cos(\theta)$",
+    "sin_thetas": r"$\sin(\theta)$",
+    "phis": r"$\phi$",
+    "cos_2phis": r"$\cos(2\phi)$",
+    "omegas_q": r"$\omega_Q$",
+    "quaternions": r"$\tilde q = \mathbf{q}^{ref} \cdot \mathbf{q}^{pred}$",
+}
+
 spins = {
     "Li": 3 / 2,
     "O": 5 / 2,
@@ -215,51 +227,73 @@ def _get_omegas_q(data, element):
 
 
 
-def get_props(efgs, element):
 
-    #warnings.warn("This function is outdated", UserWarning)
 
-    data = {
-        "Cqs": [],
-        "etas": [],
-        "omegas_q": [],
-    }
+def get_props(efgs, element, ref_efgs=None):
+    
+    data = {}
 
-    # uses np.linalg.eig, which returns eigenvectors as columns 
-    # eigenvectors[:,i] correspond to eigenvalues[i]
-    evecs = np.array([get_haeberlen_eigh_evecs(efg) for efg in efgs])
+    # -----------
+    # just evals and evecs as they are needed everywhere 
+    #------------
+
     evals = np.array([get_haeberlen_eigh_evals(efg) for efg in efgs])
+    for idx in range(3):
+        data[f"evals_{idx}"] = np.array([val[idx] for val in evals])
+
+    # -----------
+    # first get properties that don't depend on alignment 
+    #------------
+
+    both = [ spec.getcq(efg.flatten(), species=element) for efg in efgs]
+    data["Cqs"] = np.array([bb[0] for bb in both])
+    data["etas"] = np.array([bb[1] for bb in both])
 
     tilde_Cqs, tilde_etas = _get_tilde_Cqs_etas(evals)
     data["tilde_Cqs"] = tilde_Cqs
     data["tilde_etas"] = tilde_etas
 
-    # get angles
-    thetas, phis = _get_thetas_phis(evecs)
-    data["thetas"] = thetas
-    data["phis"] = phis
-    data["cos_phis"] = np.cos(phis)
-    data["cos_2_phis"] = np.cos(2*phis)
-    data["sin_phis"] = np.sin(phis)
-    data["cos_thetas"] = np.cos(thetas)
-    data["sin_thetas"] = np.sin(thetas)
+
+    evecs = np.array([get_haeberlen_eigh_evecs(efg) for efg in efgs])
+   
+    # -----------
+    # align eigenvectors if needed and get the rest of the properties 
+    #------------
+
+    if ref_efgs is not None:
+        ref_evecs = np.array([get_haeberlen_eigh_evecs(efg) for efg in ref_efgs])
+        evecs = np.array([match_permutation_direction(evec, ref_evec) for evec, ref_evec in zip(evecs, ref_evecs)])
+
+        ref_quats = np.array([get_quat(ref_efg)[0] for ref_efg in ref_efgs])
+    else:
+        ref_quats = [None for _ in efgs]
 
 
-    for idx in range(3):
-        data[f"evals_{idx}"] = np.array([val[idx] for val in evals])
     data["evecs"] = np.array(evecs)
 
 
-    for efg in efgs:
-        Cq, eta = spec.getcq(efg.flatten(), species=element)
-        data["Cqs"].append(Cq)
-        data["etas"].append(eta)
+    thetas, phis = _get_thetas_phis(evecs)
+    data["thetas"] = thetas
+    data["phis"] = phis
 
-    data["Cqs"] = np.array(data["Cqs"])
-    data["etas"] = np.array(data["etas"])
+    data["cos_thetas"] = np.cos(thetas)
+    data["sin_thetas"] = np.sin(thetas)
+    data["cos_2phis"] = np.cos(2*phis)
 
-    omegas_q = _get_omegas_q(data, element)
-    data["omegas_q"] = omegas_q * 1e3  # kHz
+    data["omegas_q"] = _get_omegas_q(data, element) * 1e3  # kHz
+
+
+    # -----------
+    # quaternions 
+    #------------
+
+    quats = [get_quat(efg, dft_quat=ref_quat)[0] for efg, ref_quat in zip(efgs, ref_quats)]
+    data["quaternions"] =  np.array(quats)
+
+    # -----------
+    # properties for debugging 
+    #------------
+
 
     #data["efg"] = np.array([val[np.triu_indices(3)] for val in efgs])
     efg_L2_irs = np.array([extract_ir_entries(val)[2] for val in efgs])
