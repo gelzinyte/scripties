@@ -338,6 +338,8 @@ def setup_axes_analyse(axs_specs, make_gamma_ax=True, make_atoms_ax=True, side=2
         start_ax_idx += 1
     else:
         ax_gamma = None
+
+    sharex=ax_gamma
     
     if make_atoms_ax:
         at_grid = gs[0, 0].subgridspec(1, 3, wspace=0, hspace=0)
@@ -350,6 +352,7 @@ def setup_axes_analyse(axs_specs, make_gamma_ax=True, make_atoms_ax=True, side=2
 
     for idx, axsp in enumerate(axs_specs):
 
+
         if axsp[2] == "i":
             sharey = None
         elif ref_share_y is None:
@@ -357,7 +360,11 @@ def setup_axes_analyse(axs_specs, make_gamma_ax=True, make_atoms_ax=True, side=2
 
         ax_label = "".join(str(sp) for sp in axsp)
 
-        ax = fig.add_subplot(gs[idx + start_ax_idx, 0], sharex=ax_gamma, sharey=sharey)
+        ax = fig.add_subplot(gs[idx + start_ax_idx, 0], sharex=sharex, sharey=sharey)
+
+        if sharex is None:
+            sharex = ax
+
         all_axes[ax_label] = ax
 
         if axsp[2] == "r" and ref_share_y is None:
@@ -379,7 +386,7 @@ def setup_axes_analyse(axs_specs, make_gamma_ax=True, make_atoms_ax=True, side=2
 
 
 
-def post_eps_ax(ax, sp, min_max_y=None):
+def post_eps_ax(ax, sp, min_max_y=None, axmin=None, axmax=None):
 
     conv = "xyz"
     t = conv[sp[0]] + conv[sp[1]]
@@ -406,16 +413,17 @@ def post_eps_ax(ax, sp, min_max_y=None):
         axmin = min_max_y[t][sp[2]]["min"]
         axmax = min_max_y[t][sp[2]]["max"]
 
+    if axmin is not None and axmax is not None:
         ax.set_xlim(axmin, axmax)
 
-    ax.hlines(
-        y=0,
-        xmin=axmin,
-        xmax=axmax,
-        color="k",
-        lw=1,
-        zorder=0,
-    )
+        ax.hlines(
+            y=0,
+            xmin=axmin,
+            xmax=axmax,
+            color="k",
+            lw=1,
+            zorder=0,
+        )
     ax.minorticks_on()
 
 
