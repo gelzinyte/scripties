@@ -73,7 +73,7 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
         dfpt = Vasprun(vasprun_fn).dfpt_data
         out = Outcar(outcar_fn)
     except:
-        return none, none, none, none, none
+        return None, None, None, None, None
 
     vol = get_volume(vrun)  # ang^3
     vol *= 1e-30  # m^3
@@ -105,13 +105,13 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
 
 
     # pick omega range
-    upper_lim = 1000 / util.thz_to_inv_cm
+    upper_lim = 1000 / util.THz_to_inv_cm
     max_omega = evals[0]
     assert np.max(evals) == max_omega
     if max_omega < upper_lim:
         max_omega = upper_lim
     omega_range = np.arange(
-        50 / util.thz_to_inv_cm, max_omega * 1.1,  omega_step / util.thz_to_inv_cm
+        50 / util.THz_to_inv_cm, max_omega * 1.1,  omega_step / util.THz_to_inv_cm
     )  # thz
 
     # reporte "dfpt" epsilon is "epsilon" + "epsilon_ion". so
@@ -120,13 +120,13 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
     # for reference
     eps_0_ref = dfpt["epsilon"]["epsilon_ion"]
 
-    s = util.permittivity.get_born_along_displacements(
+    S = util.permittivity.get_born_along_displacements(
         gamma_evecs=evecs,  # expect shape of  num_masses*3 x num_masses x 3
         masses=masses,  # kg
         born_charges=bec,  # expect shape of num_masses x 3 x 3, coulomb
     )  # c/sqrt(kg)
 
-    numerator = util.permittivity.get_numerator(s)  # c^2/kg
+    numerator = util.permittivity.get_numerator(S)  # c^2/kg
 
     eps_for_omega = np.array(
         [
@@ -166,7 +166,7 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
             individual_eps_for_omega.append(single_eps_for_omega)
         individual_eps_for_omega = np.array(individual_eps_for_omega)
     else:
-        individual_eps_for_omega=none
+        individual_eps_for_omega=None
 
     # check which s's don't contribute much and only return those phonon frequencies to be plotted 
     max_numerator = numerator.max(axis=1).max(axis=1)
@@ -175,7 +175,7 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
     coupling_strength_df = util.permittivity.compute_dft_normalised_coupling_strengths(
         eps_infty=epsilon_inf, 
         phonon_freq = evals, 
-        s=s, 
+        S=S, 
         volume=vol, 
         scattering_gamma=broadening[0], 
         broadening_type=broadening[1], 
