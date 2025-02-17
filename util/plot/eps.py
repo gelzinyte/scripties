@@ -549,4 +549,3 @@ def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_f
         
             ax.set_xticks(xticks)
 
-

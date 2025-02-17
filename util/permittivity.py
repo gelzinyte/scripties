@@ -198,8 +198,9 @@ def get_eps_infty_S_constant(eps_infty, S, V):
 
     other_constants = epsilon_0 * (2 * np.pi)**2 * V * 1e24
 
+    S_constant =  -top / bottom * other_constants
 
-    return -top / bottom * other_constants
+    return S_constant
 
 
 def solve_quadratic(A, B, C):
