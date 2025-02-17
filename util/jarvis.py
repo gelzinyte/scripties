@@ -8,6 +8,7 @@ from scipy.constants import elementary_charge
 from scipy.constants import physical_constants
 
 from ase.io import read, write
+from ase.io.vasp import read_vasp_out
 
 from jarvis.io.vasp.outputs import Vasprun, Outcar
 
@@ -74,7 +75,7 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
     except:
         return None, None, None, None, None
 
-    vol = get_volume(vrun)  # Ang^3
+    vol = get_volume(vrun)  # ang^3
     vol *= 1e-30  # m^3
 
     # doesn't necesserily match ase/jarvis number of atoms
@@ -84,23 +85,24 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
 
     # len_masses x 3 x 3
     bec = dfpt["born_charges"]  # multiples of elementary charge
-    bec *= elementary_charge  # Coulomb
+    bec *= elementary_charge  # coulomb
 
     # list, len(3*masses), each num_masses x 3 shape
     # orthonormal
     evecs = np.array(dfpt["phonon_eigenvectors"])
 
-    # eigenvalues rom vasprun are weird, read the OUTCAR
+    # eigenvalues rom vasprun are weird, read the outcar
     # array, (3*num_masses,)
     # eigenvalues = dfpt["phonon_eigenvalues"]
 
-    # Outcar eigenvalues reported twice
-    # once for evecs with 1/sqrt(M),
+    # outcar eigenvalues reported twice
+    # once for evecs with 1/sqrt(m),
     # once without
     evals = out.phonon_eigenvalues
     assert len(evals) % 2 == 0
     num_evals = int(len(evals) / 2)
-    evals = evals[:num_evals]  # THz
+    evals = evals[:num_evals]  # thz
+
 
     # pick omega range
     upper_lim = 1000 / util.THz_to_inv_cm
@@ -110,9 +112,9 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
         max_omega = upper_lim
     omega_range = np.arange(
         50 / util.THz_to_inv_cm, max_omega * 1.1,  omega_step / util.THz_to_inv_cm
-    )  # THz
+    )  # thz
 
-    # reporte "DFPT" epsilon is "epsilon" + "epsilon_ion". So
+    # reporte "dfpt" epsilon is "epsilon" + "epsilon_ion". so
     # "epsilon" electornic bit.
     epsilon_inf = dfpt["epsilon"]["epsilon"]
     # for reference
@@ -121,10 +123,10 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
     S = util.permittivity.get_born_along_displacements(
         gamma_evecs=evecs,  # expect shape of  num_masses*3 x num_masses x 3
         masses=masses,  # kg
-        born_charges=bec,  # expect shape of num_masses x 3 x 3, Coulomb
-    )  # C/sqrt(kg)
+        born_charges=bec,  # expect shape of num_masses x 3 x 3, coulomb
+    )  # c/sqrt(kg)
 
-    numerator = util.permittivity.get_numerator(S)  # C^2/kg
+    numerator = util.permittivity.get_numerator(S)  # c^2/kg
 
     eps_for_omega = np.array(
         [
@@ -166,7 +168,7 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
     else:
         individual_eps_for_omega=None
 
-    # check which S's don't contribute much and only return those phonon frequencies to be plotted 
+    # check which s's don't contribute much and only return those phonon frequencies to be plotted 
     max_numerator = numerator.max(axis=1).max(axis=1)
     selected_freqs = evals[max_numerator > 1e-13]
 
@@ -181,6 +183,73 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
     )
 
     return omega_range, eps_for_omega, selected_freqs, coupling_strength_df, individual_eps_for_omega
+
+
+
+def extract_vasp_data(jarvis_at, vasprun_fn, outcar_fn):
+    """Follows 'get_data_to_plot', but only extracts the needed data and assigns it to the atoms objects"""
+
+    jarvis_id = jarvis_at.info["jarvis_jid"]
+
+    try:
+        vrun = Vasprun(vasprun_fn)
+        dfpt = Vasprun(vasprun_fn).dfpt_data
+        out = Outcar(outcar_fn)
+    except:
+        return None
+
+
+    vol = get_volume(vrun)  # ang^3 needs to be converted to m^3 for plotting
+    #vol *= 1e-30  # m^3
+    jarvis_at.info["vasp_calc_volume"] = vol
+
+    # doesn't necesserily match ase/jarvis number of atoms
+    masses = np.array(dfpt["masses"])  # amu
+    # for permittivity calc:
+    #masses *= physical_constants["atomic mass constant"][0]  # kg
+    jarvis_at.arrays["vasp_calc_masses"] = masses
+    num_masses = len(masses)
+
+    # len_masses x 3 x 3
+    bec = dfpt["born_charges"]  # multiples of elementary charge
+    # for plotting:
+    #bec *= elementary_charge  # coulomb
+    jarvis_at.arrays["vasp_calc_becs"] = bec #.reshape((-1, 9))
+
+    # list, len(3*masses), each num_masses x 3 shape
+    # orthonormal
+    evecs = np.array(dfpt["phonon_eigenvectors"])
+    # above is of the shape (3N, N, 3), which we can't assign to atoms
+    # transpose and then we'll need to transpose it back
+    # by executing the same (1, 0, 2) permutation
+    assert evecs.shape[1] == num_masses
+    #evecs_for_ats = np.transpose(evecs, (1, 0, 2)).reshape(num_masses, num_masses * 9)
+    jarvis_at.arrays["vasp_calc_evecs"] = evecs #evecs_for_ats
+
+    # eigenvalues rom vasprun are weird, read the outcar
+    # array, (3*num_masses,)
+    # eigenvalues = dfpt["phonon_eigenvalues"]
+
+    # outcar eigenvalues reported twice
+    # once for evecs with 1/sqrt(m),
+    # once without
+    evals = out.phonon_eigenvalues
+    assert len(evals) % 2 == 0
+    num_evals = int(len(evals) / 2)
+    evals = evals[:num_evals]  # thz
+    jarvis_at.arrays["vasp_calc_evals"] = evals
+
+    #import pdb; pdb.set_trace()
+
+    # reporte "dfpt" epsilon is "epsilon" + "epsilon_ion". so
+    # "epsilon" electornic bit.
+    epsilon_inf = dfpt["epsilon"]["epsilon"]
+    # for reference
+    eps_0_ref = dfpt["epsilon"]["epsilon_ion"]
+    jarvis_at.info["vasp_calc_epsilon_inf"] = epsilon_inf
+    jarvis_at.info["vasp_calc_eps_0"] = eps_0_ref
+
+    return jarvis_at
 
 
 # from plotted position to epsilon position

@@ -197,7 +197,7 @@ def get_wfl_phonons(phonon, evaled_fn, prop_prefix, skip_first_image=True, eps=0
     return phonon, labels
 
 
-def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_q_direction, mesh_numbers, forces_key = "aims_forces"):
+def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_q_direction, mesh_numbers, forces_key = "aims_forces", fc_phono3py_fn=None):
 
     ph3 = phono3py.load(phono3py_yaml)
     ats = read(calculated_atoms_fn, ":")
@@ -207,25 +207,29 @@ def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_
         ph3.nac_params = nac_params
 
     # set force constants following vibes.phono3py.postprocess
-    supercells = ph3.get_supercells_with_displacements()
+    supercells = ph3.supercells_with_displacements
+    non_zero_supercells = [sc for sc in supercells if sc is not None]
+    first_sc = supercells[0]
 
-    assert len(supercells) == len(ats)
+    assert len(non_zero_supercells) == len(ats)
 
     force_sets = []
-    for sc, at in zip(supercells, ats):
+    valid_cell_idx = 0
+    for sc in supercells:
         if sc is None:
-            raise RuntimeError("supercell is none and I don't know if that's allowed")
+            force_sets.append(np.zeros((len(first_sc), 3)))
+            continue
+        at = ats[valid_cell_idx]
+        valid_cell_idx += 1
         force_sets.append(at.arrays[forces_key])
-    forces = np.array(force_sets)
-    ph3.forces =forces
 
-    #print(forces.shape)
-    #np.savetxt("FORCES_FC3", forces.reshape(-1,3))
+    ph3.forces = np.array(force_sets)
 
     ph3.produce_fc2()
     ph3.produce_fc3()
 
-    #ph3.save("ph33py.disp.fc2fc3.yaml")
+    if fc_phono3py_fn is not None:
+        ph3.save(fc_phono3py_fn)
 
     ph3.mesh_numbers = mesh_numbers
     ph3.init_phph_interaction(nac_q_direction=nac_q_direction)
@@ -237,5 +241,14 @@ def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_
     )
 
     return imag_self_energy
+ 
 
-
+#  from another file 
+# imag_self_energy = ph3.run_imag_self_energy(
+#     grid_points=[0,0,0],
+#     temperatures=[300],
+#     write_gamma_detail=True,
+#     write_txt=True,
+#     output_filename="ph3_imag_self_energy"
+# )
+# 
