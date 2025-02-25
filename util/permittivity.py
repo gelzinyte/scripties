@@ -198,22 +198,24 @@ def get_eps_infty_S_constant(eps_infty, S, V):
 
     other_constants = epsilon_0 * (2 * np.pi)**2 * V * 1e24
 
-    S_constant =  -top / bottom * other_constants
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        S_constant =  -top / bottom * other_constants
 
     return S_constant
 
 
 def solve_quadratic(A, B, C):
 
-    D = B**2 - 4 * A * C
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
+        D = B**2 - 4 * A * C
         root1 = (+1 * B - np.sqrt(D)) / (2 * A)
         root2 = (+1 * B + np.sqrt(D)) / (2 * A)
 
-    omega_0_1 = np.sqrt(np.abs(root1))
-    omega_0_2 = np.sqrt(np.abs(root2))
+        omega_0_1 = np.sqrt(np.abs(root1))
+        omega_0_2 = np.sqrt(np.abs(root2))
 
     return omega_0_1, omega_0_2
 
@@ -283,12 +285,25 @@ def compute_coupling_strengths(df):
 
 
 def get_normalized_coupling_strength(omega_ph, omega_zero):
-    return np.sqrt(omega_zero**2 - omega_ph**2) / omega_ph / 2
 
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        eta = np.sqrt(omega_zero**2 - omega_ph**2) / omega_ph / 2
+
+    return  eta
 
 def compute_dft_normalised_coupling_strengths(
     eps_infty, phonon_freq, S, volume, scattering_gamma, broadening_type, format_for_print=True
 ):
+    
+    eps_infty = deepcopy(eps_infty)
+    phonon_freq=deepcopy(phonon_freq)
+    S = deepcopy(S)
+    volume=deepcopy(volume)
+    scattering_gamma=deepcopy(scattering_gamma)
+    broadening_type=deepcopy(broadening_type)
+
+
     calc_const_broadening = get_broadening(
         gamma_frequencies=phonon_freq, 
         gamma=scattering_gamma, 

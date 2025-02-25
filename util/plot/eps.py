@@ -519,7 +519,7 @@ def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_f
 
     min_oo = np.min([np.min(oo) for oo in omega_ranges])
     max_oo = np.max([np.max(oo) for oo in omega_ranges])
-    xticks = np.arange(round(min_oo, -2)+100, max_oo, 100)
+    #xticks = np.arange(round(min_oo, -2)+100, max_oo, 100)
 
     if plot_kwargs is None:
         plot_kwargs = {"color":"k", "ls":"-"}
@@ -539,21 +539,21 @@ def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_f
                 ys = np.abs(ys)
             ax.plot(omega_range, ys, **plot_kwargs)
 
-        min_max_y = {t:{sp[2]:{"min":min_oo, "max":max_oo}}}
-        post_eps_ax(ax, sp, min_max_y=min_max_y)
-
-        rmin, rmax = ax.get_ylim()
-        if vlines:
-            ax.vlines(phonon_freqs, rmin, rmax, lw=0.5, color="k", label=r"$\omega_{TO}$")
-        ax.set_ylim(rmin, rmax)
-
-        if ax_idx == len(axs_specs) - 1:
-            xlabel = ax.set_xlabel(r"$\omega$, cm$^{-1}$")
-            xlabel.set_zorder(2)
-
-            ax.tick_params(axis="both", which="both", zorder=2)
-            for spine in ax.spines.values():
-                spine.set_zorder(2)
-        
-            ax.set_xticks(xticks)
+#        min_max_y = {t:{sp[2]:{"min":min_oo, "max":max_oo}}}
+#        #post_eps_ax(ax, sp, min_max_y=min_max_y)
+#
+#        rmin, rmax = ax.get_ylim()
+#        if vlines:
+#            ax.vlines(phonon_freqs, rmin, rmax, lw=0.5, color="k", label=r"$\omega_{TO}$")
+#        ax.set_ylim(rmin, rmax)
+#
+#        if ax_idx == len(axs_specs) - 1:
+#            xlabel = ax.set_xlabel(r"$\omega$, cm$^{-1}$")
+#            xlabel.set_zorder(2)
+#
+#            ax.tick_params(axis="both", which="both", zorder=2)
+#            for spine in ax.spines.values():
+#                spine.set_zorder(2)
+#        
+            #ax.set_xticks(xticks)
 

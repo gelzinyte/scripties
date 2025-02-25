@@ -1,4 +1,5 @@
 import shutil
+from copy import deepcopy
 import numpy as np
 import warnings
 
@@ -64,7 +65,11 @@ def get_volume(vrun):
 
     return vol
 
+def is_sorted_descending(lst):
+    return all(lst[i] >= lst[i+1] for i in range(len(lst)-1))
+
 def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_print=False, omega_step=1, individual=False):
+
 
     jarvis_id = jarvis_at.info["jarvis_jid"]
 
@@ -103,6 +108,13 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
     num_evals = int(len(evals) / 2)
     evals = evals[:num_evals]  # thz
 
+    # ---------
+    # skip smallest three evecs
+    # ------
+    # check that the last three are smallest    
+    assert is_sorted_descending(evals) 
+    evals = evals[:-3]
+    evecs = evecs[:-3]
 
     # pick omega range
     upper_lim = 1000 / util.THz_to_inv_cm
@@ -145,13 +157,16 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
     eps_for_omega += epsilon_inf
 
     if individual:
+        ref_omega_range = deepcopy(omega_range)
 
         # create individual plots
         individual_eps_for_omega = []
-        for num, freq in zip(numerator, evals):
-            single_eps_for_omega = np.array(
-                [
-                    epsilon_for_omega(
+        for idx, (num, freq) in enumerate(zip(numerator, evals)):
+            single_eps_for_omega = []
+            for omega in omega_range:
+                if idx==13 and omega > 217/util.THz_to_inv_cm and omega < 224/util.THz_to_inv_cm:
+                    pass
+                eps = epsilon_for_omega(
                         omega=omega,
                         gamma_frequencies=np.array([freq]),
                         numerator=np.array([num]),
@@ -159,14 +174,38 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
                         gamma=broadening[0],
                         broadening_type=broadening[1],
                     )
-                    for omega in omega_range
-                ]
-            )
+                single_eps_for_omega.append(eps)
+            #import pdb; pdb.set_trace()
+            single_eps_for_omega = np.array(single_eps_for_omega)
+
+            # commented out for debugging:
+#             single_eps_for_omega = np.array(
+#                 [
+#                     epsilon_for_omega(
+#                         omega=omega,
+#                         gamma_frequencies=np.array([freq]),
+#                         numerator=np.array([num]),
+#                         volume=vol,
+#                         gamma=broadening[0],
+#                         broadening_type=broadening[1],
+#                     )
+#                     for omega in omega_range
+#                 ]
+#             )
             single_eps_for_omega += epsilon_inf
             individual_eps_for_omega.append(single_eps_for_omega)
+
+#            if idx == 6:
+#                id1=1
+#                id2=1
+#                fig = plt.figure()
+#                plt.plot(omega_range*util.THz_to_inv_cm, single_eps_for_omega[:,id1,id2].real)
+#                plt.savefig(f"debug_eps_{idx}.{id1}{id2}.png")
+
         individual_eps_for_omega = np.array(individual_eps_for_omega)
     else:
         individual_eps_for_omega=None
+
 
     # check which s's don't contribute much and only return those phonon frequencies to be plotted 
     max_numerator = numerator.max(axis=1).max(axis=1)
@@ -181,8 +220,12 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
         broadening_type=broadening[1], 
         format_for_print=format_for_print
     )
+    assert np.all(ref_omega_range == omega_range)
 
-    return omega_range, eps_for_omega, selected_freqs, coupling_strength_df, individual_eps_for_omega
+    #import pdb; pdb.set_trace()
+    #return omega_range, eps_for_omega, selected_freqs, coupling_strength_df, individual_eps_for_omega
+    return omega_range, eps_for_omega, evals, coupling_strength_df, individual_eps_for_omega
+
 
 
 
