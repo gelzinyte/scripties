@@ -431,6 +431,9 @@ def epsilon_for_omega(
             gamma_frequencies**2 - omega**2 - gamma_frequencies**2 * omega * gamma * 1j
         )  # THz^2
     elif broadening_type == "individual":
+        if not gamma.shape == gamma_frequencies.shape:
+            import pdb; pdb.set_trace()
+
         assert gamma.shape == gamma_frequencies.shape
         real_part = gamma_frequencies**2 - omega**2
         imag_part = 1j * omega * gamma

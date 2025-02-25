@@ -110,9 +110,13 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
     assert np.max(evals) == max_omega
     if max_omega < upper_lim:
         max_omega = upper_lim
+    #omega_range = np.arange(
+    #    50 / util.THz_to_inv_cm, max_omega * 1.1,  omega_step / util.THz_to_inv_cm
+    #)  # thz
     omega_range = np.arange(
-        50 / util.THz_to_inv_cm, max_omega * 1.1,  omega_step / util.THz_to_inv_cm
+        1 / util.THz_to_inv_cm, max_omega * 1.1,  omega_step / util.THz_to_inv_cm
     )  # thz
+
 
     # reporte "dfpt" epsilon is "epsilon" + "epsilon_ion". so
     # "epsilon" electornic bit.

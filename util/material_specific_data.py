@@ -28,12 +28,12 @@ def get_ga2o3_irreps_and_relevant_modes(phonon):
     phonon.set_irreps(q=[0,0,0])
     irrep_labels = phonon.irreps._get_ir_labels()
     if len(irrep_labels)!=30:
-        raise RuntimeError("got the wrong number of irreps")
-        #warnings.warn(f"Got {len(irrep_labels)} labels, not 30 as expected for Ga2O3. Overwriting manually.")
-        #irrep_labels = np.array(['Bu', "Bu", "Au", 'Ag', 'Bg', 'Bg', 'Au', 'Ag', 'Ag', 'Bu', 'Bu', 'Bu', 'Au', 'Ag', 'Ag', 'Bu', 'Bg', 'Ag', 'Bu', 'Au', 'Ag', 'Bg', 'Bu', 'Ag', 'Bg', 'Ag', 'Au', 'Bu', 'Bu', 'Ag'])
+        #raise RuntimeError("got the wrong number of irreps")
+        warnings.warn(f"Got {len(irrep_labels)} labels, not 30 as expected for Ga2O3. Overwriting manually.")
+        irrep_labels = np.array(['Bu', "Bu", "Au", 'Ag', 'Bg', 'Bg', 'Au', 'Ag', 'Ag', 'Bu', 'Bu', 'Bu', 'Au', 'Ag', 'Ag', 'Bu', 'Bg', 'Ag', 'Bu', 'Au', 'Ag', 'Bg', 'Bu', 'Ag', 'Bg', 'Ag', 'Au', 'Bu', 'Bu', 'Ag'])
 
-    #relevant_mode_idcs = np.array([idx for idx, label in enumerate(irrep_labels) if label in ["Bu", "Au"] and idx>2])
-    relevant_mode_idcs=None
+    relevant_mode_idcs = np.array([idx for idx, label in enumerate(irrep_labels) if label in ["Bu", "Au"] and idx>2])
+    #relevant_mode_idcs=None
 
     return irrep_labels, relevant_mode_idcs
 
