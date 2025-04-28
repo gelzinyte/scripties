@@ -13,8 +13,6 @@ from scipy.constants import epsilon_0
 from scipy.spatial.transform import Rotation as R
 
 import matplotlib.pyplot as plt
-from util.plot.ga2o3 import prepare_axes
-
 
 base = Path(util.__file__).parent / "data"
 

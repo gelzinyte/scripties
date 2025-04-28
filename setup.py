@@ -7,7 +7,8 @@ setuptools.setup(
         "matplotlib",
         "pytest",
         "pandas",
-
+        "ipython",
+        "pynvim",
     ],
     packages=["util"],
 )
