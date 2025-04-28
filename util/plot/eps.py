@@ -526,7 +526,18 @@ def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_f
     if "label" not in plot_kwargs:
         plot_kwargs["label"] = None
 
+    ccols = {
+        0: "tab:red",
+        1: "tab:blue",
+        2: "tab:green",
+    }
+
+
     for ax_idx, (sp, ax) in enumerate(zip(axs_specs, axs_eps.values())):
+
+
+        if "color" in plot_kwargs and plot_kwargs["color"] == "custom":
+            plot_kwargs["color"] = ccols[ax_idx]
 
         conv = "xyz"
         t = conv[sp[0]] + conv[sp[1]]

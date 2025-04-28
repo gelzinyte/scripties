@@ -1,4 +1,5 @@
 import numpy as np
+from pathlib import Path
 
 from ase.dft import kpoints
 from ase.io import read
@@ -92,7 +93,7 @@ def plot_total_dos(
     ax.grid(draw_grid)
 
 
-def postprocess_wfl(evaled_ats_fn, phonopy_yaml_fn, born_charges_file=None, prop_prefix="aims_"):
+def postprocess_wfl(evaled_ats_fn, phonopy_yaml_fn, born_charges_file, prop_prefix="aims_"):
 
     phonon = phonopy.load(phonopy_yaml_fn, produce_fc=False, log_level=1)
     evaled_ats = read(evaled_ats_fn, ":")
@@ -197,9 +198,12 @@ def get_wfl_phonons(phonon, evaled_fn, prop_prefix, skip_first_image=True, eps=0
     return phonon, labels
 
 
-def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_q_direction, mesh_numbers, forces_key = "aims_forces", fc_phono3py_fn=None):
+def make_ph3_file_with_results(phono3py_yaml, calculated_atoms_fn, BORN_filename, forces_key = "aims_forces", fc_phono3py_fn=None):
 
-    ph3 = phono3py.load(phono3py_yaml)
+    if fc_phono3py_fn is not None and Path(fc_phono3py_fn).exists():
+        return phono3py.load(fc_phono3py_fn, log_level=1)    
+
+    ph3 = phono3py.load(phono3py_yaml, log_level=1)
     ats = read(calculated_atoms_fn, ":")
 
     if BORN_filename is not None:
@@ -231,13 +235,41 @@ def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_
     if fc_phono3py_fn is not None:
         ph3.save(fc_phono3py_fn)
 
+    return ph3
+
+
+
+def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_q_direction, mesh_numbers, forces_key = "aims_forces", fc_phono3py_fn=None, gamma_detail_fn=None):
+
+    ph3 = make_ph3_file_with_results(
+        phono3py_yaml, 
+        calculated_atoms_fn, 
+        BORN_filename, 
+        forces_key,
+        fc_phono3py_fn,
+        )
+
+ 
     ph3.mesh_numbers = mesh_numbers
     ph3.init_phph_interaction(nac_q_direction=nac_q_direction)
+
+    if gamma_detail_fn is None:
+        write_gamma_detail=False
+        keep_gamma_detail=False
+        output_filename=None
+    else:
+        write_gamma_detail=True
+        keep_gamma_detail=True
+        output_filename=gamma_detail_fn
+
 
     imag_self_energy = ph3.run_imag_self_energy(
         grid_points=np.array([0]),
         temperatures=[300],
         frequency_points_at_bands=True,
+        write_gamma_detail=write_gamma_detail,
+        keep_gamma_detail=keep_gamma_detail,
+        output_filename=output_filename,
     )
 
     return imag_self_energy

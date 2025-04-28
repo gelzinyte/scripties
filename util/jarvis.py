@@ -125,6 +125,10 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
     omega_range = np.arange(
         50 / util.THz_to_inv_cm, max_omega * 1.1,  omega_step / util.THz_to_inv_cm
     )  # thz
+    #omega_range = np.arange(
+    #    700 / util.THz_to_inv_cm, 1700 / util.THz_to_inv_cm,  omega_step / util.THz_to_inv_cm
+    #)  # thz
+
 
     # reporte "dfpt" epsilon is "epsilon" + "epsilon_ion". so
     # "epsilon" electornic bit.
