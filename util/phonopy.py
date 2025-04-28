@@ -94,7 +94,7 @@ def plot_total_dos(
 
 def postprocess_wfl(evaled_ats_fn, phonopy_yaml_fn, born_charges_file=None, prop_prefix="aims_"):
 
-    phonon = phonopy.load(phonopy_yaml_fn, produce_fc=False)
+    phonon = phonopy.load(phonopy_yaml_fn, produce_fc=False, log_level=1)
     evaled_ats = read(evaled_ats_fn, ":")
     supercells = phonon.get_supercells_with_displacements()
     assert len(supercells) == len(evaled_ats)
