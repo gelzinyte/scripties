@@ -7,6 +7,8 @@ setuptools.setup(
         "matplotlib",
         "pytest",
         "pandas",
+        "ipython",
+        "pynvim",
 	    "tqdm",
         "pynvim",
         "black",
@@ -16,7 +18,6 @@ setuptools.setup(
         "scipy",
         "ase==3.23",
         "wfl",
-
     ],
     packages=["util"],
 )
