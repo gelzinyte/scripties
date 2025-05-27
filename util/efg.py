@@ -2,7 +2,6 @@ import numpy as np
 from copy import deepcopy
 import warnings
 from pytest import approx
-from itertools import permutations
 
 from scipy.stats import pearsonr
 from scipy.spatial.transform import Rotation as R
@@ -12,6 +11,8 @@ from matplotlib import gridspec
 
 from ml_spectroscopy import calculators as spec
 from ml_spectroscopy.calculators import _get_quaternion_from_matrix as get_quat 
+
+import util.align
 
 
 property_latex_labels = {
@@ -159,53 +160,6 @@ def get_phi(evec):
 def get_abs_err(ref_angle, pred_angle):
     return np.abs(ref_angle - pred_angle)
                
-
-def get_dot_product(evec, ref_evec):
-    dot_products = np.array([[np.dot(evec[:,i], ref_evec[:,j]) for i in [x, y, z]] for j in [x, y, z]])
-    return dot_products
-
-
-def match_permutation(evec, ref_evec):
-
-    dot_products = get_dot_product(evec, ref_evec)
-        
-    best_trace = np.trace(np.abs(dot_products))
-    best_evec = evec
-
-    if  best_trace > 2.9:
-        return evec
-
-    for perm in permutations(range(3)):
-        permuted_evec = deepcopy(evec)
-        permuted_evec = permuted_evec[:, perm]
-
-        dot_products = get_dot_product(permuted_evec, ref_evec)
-        trace = np.trace(np.abs(dot_products))
-
-        if trace > best_trace:
-            best_trace = trace
-            best_evec = permuted_evec
-
-
-    return best_evec
-
-
-def match_directions(evec, ref_evec):
-
-    dot_products = get_dot_product(evec, ref_evec)
-    
-    for i in [x, y, z]:
-        if dot_products[i][i] < 0:
-            evec[:, i] *= -1
-
-    return evec
-
-def match_permutation_direction(evec, ref_evec):
-    evec = match_permutation(evec, ref_evec)
-    evec = match_directions(evec, ref_evec)
-    return evec
-
-
 def _get_thetas_phis(evecs):
 
     thetas = np.array([get_theta(evec) for evec in evecs])
@@ -262,7 +216,7 @@ def get_props(efgs, element, ref_efgs=None):
 
     if ref_efgs is not None:
         ref_evecs = np.array([get_haeberlen_eigh_evecs(efg) for efg in ref_efgs])
-        evecs = np.array([match_permutation_direction(evec, ref_evec) for evec, ref_evec in zip(evecs, ref_evecs)])
+        evecs = np.array([util.align.match_permutation_direction(evec, ref_evec) for evec, ref_evec in zip(evecs, ref_evecs)])
 
         ref_quats = np.array([get_quat(ref_efg)[0] for ref_efg in ref_efgs])
     else:
