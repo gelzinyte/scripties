@@ -11,8 +11,12 @@ import bisect
 
 from scipy.constants import epsilon_0
 from scipy.spatial.transform import Rotation as R
+from scipy.constants import elementary_charge
 
 import matplotlib.pyplot as plt
+
+amu = physical_constants["atomic mass constant"][0]
+
 
 base = Path(util.__file__).parent / "data"
 
@@ -425,6 +429,41 @@ def get_born_along_displacements(gamma_evecs, masses, born_charges):
     return S
 
 
+def eps_for_omega_from_df(df, omega_range):
+    """
+    omega range in cm-1
+    """
+
+    epsilon_infty = get_eps_inf(df)  # unitless
+    cell_volume = df["volume ang^3"].iloc[0] * 1e-10**3 # m^3
+
+    phonon_frequencies =  df["frequency 1/cm"].to_numpy() / util.THz_to_inv_cm  # THz
+    broadening = df["dft gamma (1/cm)"].to_numpy() / util.THz_to_inv_cm  # THz
+
+    S = df["S elementary_charge/sqrt(amu)"].apply(lambda x: S_to_np(x))  # e/sqrt(amu)
+    S = np.array([ss for ss in S.values])  # pd messes up np arrays, fix here 
+    S = S * elementary_charge / np.sqrt(amu)  # C/sqrt(kg)
+    numerator = get_numerator(S) # C^2/kg
+
+    eps = np.array([epsilon_for_omega(
+                        omega, 
+                        phonon_frequencies, 
+                        numerator, 
+                        cell_volume, 
+                        broadening, 
+                        broadening_type="individual",
+                    ) for omega in omega_range]) # C^2 s^2 / (kg m^3)
+
+    return eps + epsilon_infty
+
+
+def S_to_np(x):
+    return np.fromstring(x.strip('[]'), sep=" ")
+
+def get_eps_inf(df):
+    eps_cols = ["eps_inf_xx", "eps_inf_yy", "eps_inf_zz"]
+    return df[eps_cols].iloc[0].values * np.eye(3)
+
 def epsilon_for_omega(
     omega, gamma_frequencies, numerator, volume, gamma, broadening_type
 ):
@@ -463,7 +502,7 @@ def epsilon_for_omega(
         denominator.reshape(len(gamma_frequencies), 1, 1), (1, 3, 3)
     )  # THz^2
 
-    # axis=0 to sum over the [12] modes
+    # axis=0 to sum over the phonon modes
     #                                       C^2/kg     THz^2                   m^3      THz^2 -> Hz^2
     epsilon_contribution = (
         np.sum(np.divide(numerator, denominator), axis=0) / volume * 1e-24
