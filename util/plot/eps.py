@@ -84,7 +84,7 @@ def get_discontinuities(arr, threshold=30):
     return disconts
 
 
-def make_continuous(arr):
+def make_continuous(arr, allowed_degree_shift=90, changeover=1):
 
     arr = arr.copy()
 
@@ -96,12 +96,12 @@ def make_continuous(arr):
     else:
 
         disc_loc = disc_locs[0]
-        signed_factor = get_shift_sign_multiplicity(arr, disc_locs)
-        arr[: disc_loc + 1] += signed_factor * 90
-
+        signed_factor = get_shift_sign_multiplicity(arr, disc_locs, allowed_degree_shift, changeover)
+        arr[: disc_loc + 1] += signed_factor * allowed_degree_shift
+        import pdb; pdb.set_trace()
         if len(disc_locs) > 1:
-            assert len(disc_locs) < 10
-            arr, _ = make_continuous(arr)
+            assert len(disc_locs) < 20
+            arr, _ = make_continuous(arr, allowed_degree_shift)
 
     return arr, disc_locs
 
@@ -121,16 +121,16 @@ def get_penalty(arr, lower=-45, upper=+45):
     return sum(1 for x in arr if x < lower or x > upper)
 
 
-def get_shift_sign_multiplicity(arr, disc_locs):
+def get_shift_sign_multiplicity(arr, disc_locs, allowed_degree_shift=90, changeover=1):
     """
     determine whether to shift up or down
     by comparing values in the middle
     pre- and post discontinuity
     """
-    pred_id = disc_locs[0]
-    postd_id = disc_locs[0] + 1
+    pred_id = disc_locs[0] - changeover
+    postd_id = disc_locs[0] + changeover 
 
-    multiplicity = round((arr[postd_id] - arr[pred_id]) / 90)
+    multiplicity = round((arr[postd_id] - arr[pred_id]) / allowed_degree_shift)
 
     return multiplicity
 

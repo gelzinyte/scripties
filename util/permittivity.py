@@ -12,6 +12,7 @@ import bisect
 from scipy.constants import epsilon_0
 from scipy.spatial.transform import Rotation as R
 from scipy.constants import elementary_charge
+from scipy.constants import epsilon_0, physical_constants, speed_of_light
 
 import matplotlib.pyplot as plt
 
