@@ -458,6 +458,65 @@ def eps_for_omega_from_df(df, omega_range):
     return eps + epsilon_infty
 
 
+def eps_for_omega_from_exp_df(df, omega_range):
+    """
+    omega range in cm-1
+    """
+
+    epsilon_infty = get_eps_inf(df)  # unitless
+    epsilon_infty = epsilon_infty[:-1, :-1] # only x and y, no z contributions
+
+    phonon_frequencies =  df["frequency 1/cm"].to_numpy() / util.THz_to_inv_cm  # cm-1
+    broadening = df["gamma (1/cm)"].to_numpy() / util.THz_to_inv_cm  # cm-1 
+
+    angle  = np.deg2rad(df["angle deg"])  # radians
+    S_magnitude = df["S magnitude cm-1"].to_numpy()  # cm-1
+
+
+    eps = np.array([epsilon_for_omega_exp(
+                        omega=omega, 
+                        phonon_frequencies=phonon_frequencies, 
+                        angle=angle,
+                        S_magnitude=S_magnitude,
+                        broadening=broadening, 
+                    ) for omega in omega_range]) 
+
+    return eps + epsilon_infty
+
+
+def epsilon_for_omega_exp(omega, phonon_frequencies, angle, S_magnitude, broadening):
+    # equation 21 of schubert 
+
+    assert phonon_frequencies.shape == angle.shape
+    assert S_magnitude.shape == angle.shape
+    assert broadening.shape == angle.shape
+
+    # all angle-dependent terms of schubert's equation 21
+    projection_matrix = np.array([
+        [np.cos(angle)**2, np.sin(angle) * np.cos(angle)],
+        [np.sin(angle) * np.cos(angle), np.sin(angle)**2],
+    ]) # shape (2, 2, n_modes)
+
+    # swap the axes so that this can be directly multiplied with S_magnitude array
+    projection_matrix = np.transpose(projection_matrix, (2, 0, 1)) # shape (n_modes, 2, 2)
+
+    # Add extra dimensions so S can be multiplied with projection matrix
+    S_magnitude = S_magnitude.reshape((-1, 1, 1)) # shape (n_modes, 1, 1)
+
+    # expand float into the same shape as other entries in the numerator
+    omega = np.full(phonon_frequencies.shape, omega) # shape (n_modes,)
+
+    numerator =  projection_matrix * S_magnitude ** 2  #  shape: (n_modes, 2, 2)
+    denominator =  phonon_frequencies ** 2  - omega ** 2 - 1j * omega * broadening  # shape: n_modes,
+    # add extra dimensions for division
+    denominator = denominator.reshape((-1, 1, 1)) # shape (n_modes, 1, 1)
+
+    epsilon =np.divide(numerator, denominator).sum(axis=0)
+    
+    return epsilon
+    
+
+
 def S_to_np(x):
     return np.fromstring(x.strip('[]'), sep=" ")
 

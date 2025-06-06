@@ -11,22 +11,25 @@ z = 2
 
 
 def get_dot_product(evec, ref_evec):
-    dot_products = np.array([[np.dot(evec[:,i], ref_evec[:,j]) for i in [x, y, z]] for j in [x, y, z]])
+    num_evecs = evec.shape[0]
+    dot_products = np.array([[np.dot(evec[:,i], ref_evec[:,j]) for i in range(num_evecs)] for j in range(num_evecs)])
     return dot_products
 
 
 
 def match_permutation(evec, ref_evec):
 
+    num_evecs = evec.shape[0]
+
     dot_products = get_dot_product(evec, ref_evec)
         
     best_trace = np.trace(np.abs(dot_products))
     best_evec = evec
 
-    if  best_trace > 2.9:
+    if  best_trace/num_evecs > 0.95:
         return evec
 
-    for perm in permutations(range(3)):
+    for perm in permutations(range(num_evecs)):
         permuted_evec = deepcopy(evec)
         permuted_evec = permuted_evec[:, perm]
 
@@ -43,9 +46,11 @@ def match_permutation(evec, ref_evec):
 
 def match_directions(evec, ref_evec):
 
+    num_evecs = evec.shape[0]
+
     dot_products = get_dot_product(evec, ref_evec)
     
-    for i in [x, y, z]:
+    for i in range(num_evecs):
         if dot_products[i][i] < 0:
             evec[:, i] *= -1
 
