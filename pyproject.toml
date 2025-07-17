@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "util"
+version = "0.1.0"
+description = "My daily helper functions"
+authors = [
+  { name="Jane Doe", email="jane@example.com" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+  "numpy",
+  "matplotlib",
+  "pytest",
+  "pandas",
+  "ipython",
+  "pynvim",
+  "tqdm",
+  "pynvim",
+  "black",
+  "pylint",
+  "adjustText",
+  "pypdf",
+  "scipy",
+  "ase==3.23",
+  "wfl",
+  "jedi",
+]
+
