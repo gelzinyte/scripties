@@ -249,6 +249,17 @@ def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_
         fc_phono3py_fn,
         )
 
+    imag_self_energy = get_imag_self_energy_from_ph3(
+        ph3, 
+        nac_q_direction, 
+        mesh_numbers, 
+        gamma_detail_fn,
+    )
+
+    return imag_self_energy
+
+
+def get_imag_self_energy_from_ph3(ph3, nac_q_direction, mesh_numbers, gamma_detail_fn):
  
     ph3.mesh_numbers = mesh_numbers
     ph3.init_phph_interaction(nac_q_direction=nac_q_direction)
@@ -275,12 +286,3 @@ def get_imag_self_energy(phono3py_yaml, calculated_atoms_fn, BORN_filename, nac_
     return imag_self_energy
  
 
-#  from another file 
-# imag_self_energy = ph3.run_imag_self_energy(
-#     grid_points=[0,0,0],
-#     temperatures=[300],
-#     write_gamma_detail=True,
-#     write_txt=True,
-#     output_filename="ph3_imag_self_energy"
-# )
-# 

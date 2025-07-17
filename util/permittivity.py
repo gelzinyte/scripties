@@ -90,9 +90,9 @@ def get_schubert(omega_range, epsilon_inf=True):
         eps_zz += xyz_data["high_freq"]["zz"]
         eps_xy += xyz_data["high_freq"]["xy"]
 
-    for idx, (A, freq, angle) in enumerate(zip(Bu["A"], Bu["freq"], Bu["angle"])):
+    for idx, (A, freq, angle, scatter) in enumerate(zip(Bu["A"], Bu["freq"], Bu["angle"], Bu["scatter"])):
         print(
-            f"{idx}. A {freq:0f} cm-1 alpha {np.rad2deg(angle):.0f} deg freq {freq:.0f} cm^-1"
+                f"{idx}. A {freq:0f} cm-1 alpha {np.rad2deg(angle):.0f} deg freq {freq:.0f} cm^-1 broad {scatter:.02f} cm^-1"
         )
 
     data = {"xx": eps_xx, "yy": eps_yy, "xy": eps_xy, "zz": eps_zz}

@@ -18,6 +18,7 @@ setuptools.setup(
         "scipy",
         "ase==3.23",
         "wfl",
+        "jedi",
     ],
     packages=["util"],
 )

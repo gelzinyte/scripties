@@ -15,7 +15,8 @@ def by_label(ats, info_label):
         if label not in data.keys():
             data[label] = []
         data[label].append(at)
-
+    if len(data.keys()) == 1:
+        raise RuntimeError(f"No partitioning by labels. Is {info_label} really in at.info?")
     return data
 
 
