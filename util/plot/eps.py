@@ -84,7 +84,7 @@ def get_discontinuities(arr, threshold=30):
     return disconts
 
 
-def make_continuous(arr):
+def make_continuous(arr, allowed_degree_shift=90, changeover=1):
 
     arr = arr.copy()
 
@@ -96,12 +96,12 @@ def make_continuous(arr):
     else:
 
         disc_loc = disc_locs[0]
-        signed_factor = get_shift_sign_multiplicity(arr, disc_locs)
-        arr[: disc_loc + 1] += signed_factor * 90
-
+        signed_factor = get_shift_sign_multiplicity(arr, disc_locs, allowed_degree_shift, changeover)
+        arr[: disc_loc + 1] += signed_factor * allowed_degree_shift
+        import pdb; pdb.set_trace()
         if len(disc_locs) > 1:
-            assert len(disc_locs) < 10
-            arr, _ = make_continuous(arr)
+            assert len(disc_locs) < 20
+            arr, _ = make_continuous(arr, allowed_degree_shift)
 
     return arr, disc_locs
 
@@ -121,16 +121,16 @@ def get_penalty(arr, lower=-45, upper=+45):
     return sum(1 for x in arr if x < lower or x > upper)
 
 
-def get_shift_sign_multiplicity(arr, disc_locs):
+def get_shift_sign_multiplicity(arr, disc_locs, allowed_degree_shift=90, changeover=1):
     """
     determine whether to shift up or down
     by comparing values in the middle
     pre- and post discontinuity
     """
-    pred_id = disc_locs[0]
-    postd_id = disc_locs[0] + 1
+    pred_id = disc_locs[0] - changeover
+    postd_id = disc_locs[0] + changeover 
 
-    multiplicity = round((arr[postd_id] - arr[pred_id]) / 90)
+    multiplicity = round((arr[postd_id] - arr[pred_id]) / allowed_degree_shift)
 
     return multiplicity
 
@@ -201,6 +201,9 @@ def plot_gammas(ax, omegas_ranges, gammas_ranges, plot_kwargs):
 
 
 def get_eps_type(eps):
+
+    if len(eps.shape) == 0:
+        return "na"
 
     xx = -1 if eps[0][0].real < 0 else 1
     yy = -1 if eps[1][1].real < 0 else 1
@@ -519,7 +522,7 @@ def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_f
 
     min_oo = np.min([np.min(oo) for oo in omega_ranges])
     max_oo = np.max([np.max(oo) for oo in omega_ranges])
-    #xticks = np.arange(round(min_oo, -2)+100, max_oo, 100)
+    xticks = np.arange(round(min_oo, -2)+100, max_oo, 100)
 
     if plot_kwargs is None:
         plot_kwargs = {"color":"k", "ls":"-"}
@@ -550,21 +553,21 @@ def plot_epsilons(axs_specs, axs_eps, eps_for_omega_tidy, omega_ranges, phonon_f
                 ys = np.abs(ys)
             ax.plot(omega_range, ys, **plot_kwargs)
 
-#        min_max_y = {t:{sp[2]:{"min":min_oo, "max":max_oo}}}
-#        #post_eps_ax(ax, sp, min_max_y=min_max_y)
-#
-#        rmin, rmax = ax.get_ylim()
-#        if vlines:
-#            ax.vlines(phonon_freqs, rmin, rmax, lw=0.5, color="k", label=r"$\omega_{TO}$")
-#        ax.set_ylim(rmin, rmax)
-#
-#        if ax_idx == len(axs_specs) - 1:
-#            xlabel = ax.set_xlabel(r"$\omega$, cm$^{-1}$")
-#            xlabel.set_zorder(2)
-#
-#            ax.tick_params(axis="both", which="both", zorder=2)
-#            for spine in ax.spines.values():
-#                spine.set_zorder(2)
-#        
-            #ax.set_xticks(xticks)
+        min_max_y = {t:{sp[2]:{"min":min_oo, "max":max_oo}}}
+        post_eps_ax(ax, sp, min_max_y=min_max_y)
+
+        rmin, rmax = ax.get_ylim()
+        if vlines:
+            ax.vlines(phonon_freqs, rmin, rmax, lw=0.5, color="k", label=r"$\omega_{TO}$")
+        ax.set_ylim(rmin, rmax)
+
+        if ax_idx == len(axs_specs) - 1:
+            xlabel = ax.set_xlabel(r"$\omega$, cm$^{-1}$")
+            xlabel.set_zorder(2)
+
+            ax.tick_params(axis="both", which="both", zorder=2)
+            for spine in ax.spines.values():
+                spine.set_zorder(2)
+        
+            ax.set_xticks(xticks)
 

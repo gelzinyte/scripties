@@ -160,8 +160,8 @@ def get_data_to_plot(jarvis_at, vasprun_fn, outcar_fn, broadening, format_for_pr
 
     eps_for_omega += epsilon_inf
 
+    ref_omega_range = deepcopy(omega_range)
     if individual:
-        ref_omega_range = deepcopy(omega_range)
 
         # create individual plots
         individual_eps_for_omega = []
