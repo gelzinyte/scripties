@@ -21,7 +21,12 @@ def assign_becs(at_base, ats_displaced, born_displacement_magnitude):
 
         polarization = disp_at.info["aims_polarization"] # units  e/Ang^2
         #              Ang^3    e/Ang^2        Ang
-        born_charges = volume * polarization / born_displacement_magnitude # multiples of unit charge
+        #born_charges = volume * polarization / born_displacement_magnitude # multiples of unit charge
+
+        print(polarization)
+        #          Ang^3    Ang^3 -> m^3  C/m^2          Ang                     Ang -> m
+        born_charges = volume * 1e-30 *       polarization / (born_displacement_magnitude * 1e-10) #  C
+        born_charges /= elementary_charge
 
         bec_for_at_entry.append([float(bec) for bec in born_charges])
 
